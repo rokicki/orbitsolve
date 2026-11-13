@@ -3436,3 +3436,4 @@ Refold with the new script: 1ud f17 17s **2,838**; 2ud f17 18s **133,281**; 4op/
 from the original lines: 14,530 of 14,541 lines new to lines.txt) -> **3 of 3 shortened** (108-336 s each, sharing
 node 1 with 2ud).  So 4op's "stall" was the original representatives' tails; the fold's own lines give fresh tails.
 12:55 [armory] first refold on armory (handover test, run by the laptop Claude over ssh): 1ud f18 17s **2,832**; 2ud f18 18s **133,140**; 4op f8 22s **14,535** (the 3 t3 finds); 3ax f6 546; vline / certcheck / axcheck PASS.  From here armory runs arena and the refolds (arena/RUNBOOK.md); the laptop stopped its refold cycle.
+11-13 14:05 [armory] fold: 1ud f19 17s **2,732**; 2ud f19 18s **131,515**; 4op f8 14,535, 3ax f6 546 (no change); vline PASS x4, certcheck PASS x2; arena 1ud prod2 3,530/6,687 (~34 h left), 2ud prod4 13,397/45,382 (~91 h left).  2-hourly cycle scheduled in the armory session (cron, :13 every other hour).
