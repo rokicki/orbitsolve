@@ -1,0 +1,40 @@
+Mid (T-centre, odd N) orbit certificate, concise form (2026-11-06).  Per orbit 18 + 21 = 39 moves.
+
+Stages (same as cert/mid/centres-first, which holds a line for every class):
+  none..UD     51,482,970 positions, worst 18; kept 3,553 of 3,226,306 lines
+  UD..LFRB     63,063,000 positions, worst 21; kept   373 of 3,957,199 lines
+
+Files: stages/STAGE/wNN.txt, the kept solving sequences (same file names as the full form; a subset of its lines).
+Rule: the actions of a stage are its face turns plus every kept line of at most 6 moves, under the 48 cube
+symmetries and inversion, each costing its move count, restricted to those that keep the stage's placed colours
+home.  A Dijkstra search over the stage positions, from the goal and from each kept line's position and its
+stage-symmetric images (at that line's length), reaches every position within the stage worst above.  A
+position's solving sequence is the actions along its path, then the kept line it reaches.
+Made by devtools/colconcise (logs: certruns/concise); expanded by certsolve (certrest.h ColStage::build).
+
+stages/none..UD/w0.txt 0 lines, longest 0
+stages/none..UD/w1.txt 0 lines, longest 0
+stages/none..UD/w2.txt 79 lines, longest 6
+stages/none..UD/w3.txt 0 lines, longest 0
+stages/none..UD/w4.txt 83 lines, longest 6
+stages/none..UD/w5.txt 0 lines, longest 0
+stages/none..UD/w6.txt 0 lines, longest 0
+stages/none..UD/w7.txt 457 lines, longest 18
+stages/none..UD/w8.txt 2934 lines, longest 18
+stages/UD..LFRB/w00.txt 0 lines, longest 0
+stages/UD..LFRB/w01.txt 0 lines, longest 0
+stages/UD..LFRB/w02.txt 0 lines, longest 0
+stages/UD..LFRB/w03.txt 0 lines, longest 0
+stages/UD..LFRB/w04.txt 33 lines, longest 6
+stages/UD..LFRB/w05.txt 0 lines, longest 0
+stages/UD..LFRB/w06.txt 53 lines, longest 6
+stages/UD..LFRB/w07.txt 0 lines, longest 0
+stages/UD..LFRB/w08.txt 5 lines, longest 6
+stages/UD..LFRB/w09.txt 0 lines, longest 0
+stages/UD..LFRB/w10.txt 0 lines, longest 0
+stages/UD..LFRB/w11.txt 0 lines, longest 0
+stages/UD..LFRB/w12.txt 0 lines, longest 0
+stages/UD..LFRB/w13.txt 4 lines, longest 19
+stages/UD..LFRB/w14.txt 24 lines, longest 20
+stages/UD..LFRB/w15.txt 114 lines, longest 20
+stages/UD..LFRB/w16.txt 140 lines, longest 21

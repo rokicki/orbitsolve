@@ -1,0 +1,16 @@
+pool 1172928 algorithms
+W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 63.62 (sd 3.58, /orbit 31.81, raw 63.62)  algs 8.17  4730.1 ms/pair
+pool 1172928 algorithms
+W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 64.58 (sd 3.75, /orbit 32.29, raw 64.58)  algs 8.52  4891.2 ms/pair
+pool 1172928 algorithms
+W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 69.44 (sd 4.63, /orbit 34.72, raw 69.44)  algs 9.06  6425.5 ms/pair
+pool 1172928 algorithms
+W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 72.89 (sd 6.25, /orbit 36.45, raw 72.89)  algs 9.58  8166.1 ms/pair
+pool 1172928 algorithms
+W=32 l=1.00 pool=1172928 nocancel solved 64/64  moves 61.06 (sd 3.20, /orbit 30.53, raw 61.06)  algs 7.97  28991.3 ms/pair
+pool 1172928 algorithms
+finish table: 7659504 algorithms, 5597491 states, max misplaced 24
+W=32 l=1.00 pool=1172928 nocancel solved 64/64  moves 59.95 (sd 2.85, /orbit 29.98, raw 59.95)  algs 7.86  350074.7 ms/pair
+pool 7659504 algorithms
+finish table: 7659504 algorithms, 5597491 states, max misplaced 24
+W=16 l=1.00 pool=7659504 nocancel solved 32/32  moves 59.72 (sd 3.58, /orbit 29.86, raw 59.72)  algs 7.44  1281775.1 ms/pair

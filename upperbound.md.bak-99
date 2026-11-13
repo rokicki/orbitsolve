@@ -1,0 +1,568 @@
+# Upper bounds for solving one centre orbit
+
+Question: with everything else solved, how many moves (single-layer turn
+metric: every turn of any one layer, quarter or half, counts 1) can it take to
+solve one centre orbit using only moves that leave everything else alone?
+Same-coloured centre pieces are interchangeable.  The easy bound is 144
+(at most 12 three-cycles, each a commutator of at most 12 moves).
+
+## Results so far (2026-10-12)
+
+| orbit | bound | stages (worst case each) | status |
+|---|---|---|---|
+| diagonal (X-centres; all centres of 4x4x4) | **54** | D 12, U 18 (D solved), LFRB 24 (U, D solved) | certificate complete (136 + 84 + 98 classes); stages 1-2, purity on 4..9 and 12 example solves re-checked in JS; page https://claude.ai/artifact/LhXB83116s4PajiuAsLXPC |
+| mid (T-centres, odd N) | **54** | UD together 26, LFRB 28 (U, D solved) | orbitbound result; no certificate yet |
+| single oblique, partner kept solved | **81** | UD together 41, LFRB 40 (U, D solved) | orbitbound result; no certificate yet |
+| single oblique, diagonals may be disturbed, with merging | **71** (being re-checked with the purified obl11p.single) | UD together 35 (16 positions; all 188,640 actions), LFRB 36 (352 positions; all 19,856 actions) | orbitbound16, whole single pool incl. obl11.single; both stages exact for this pool |
+| oblique, partner and diagonals may change ("free") | **42** (re-confirmed on the purified obl11p.all: LFRB 24, boundary 43: 1 canonical UD state, 42: 92, 437 carries; 200 random checks, worst 40) | UD together 20 (4 positions after merging refinement; cost <= 7, 94,764 actions), LFRB 24 (4 positions; pool adds all of obl11.all up to 11 moves: 639M images, 5.1M keep U and D; cost <= 9 search, refine with 2.96M actions); then the boundary pass proves UD + LFRB <= 42 (43: 4 UD states, 42: 716, about 2 carries each; 200 random hard colourings checked directly, all <= 41) | orbitbound16 for UD, orbitbound20 `--planstart UD --plan LFRB` for LFRB (3.8 h, nearly all loading; `obl11.all.cls@UD` now filters on load); orbitbound25 `--boundary 0` with `LOADDIST` (6 min) |
+| wing (edge) orbit, wings first | **77** | 4 wings 12, 4 wings 15, 5 wings 20, last 11 wings 30 | wingbound; wing3 + wing_d6c only |
+| chiral pair of obliques (strict: edges, corners, other centres kept) | **112** | aUbU 21, aDbD 31, then the boundary pass proves aUbU + aDbD <= 51 (26 canonical aUbU states, 80 carries; 100 random hard colourings checked directly, worst 50); a ring 25 (b ring free), b ring 36 (single-orbit algorithms) | orbitbound17/19 `--merge --refine --diagok --budget 1e13`; boundary orbitbound29 with `LOADDIST`; plans compared below; pools pair3, p8s10, p9, eg8, c12x (all re-checked pure, see below) |
+
+### Centres first (user's focus from 2026-10-10 afternoon)
+
+Edges and corners are solved afterwards and the centre orbits one at a time, so
+an algorithm only has to keep the other centre orbits colour-solved.  Outer face
+turns are then cost-1 actions, and every pool algorithm also counts without
+any of its leading and trailing outer face turns (`--faceturns`, orbitbound30).
+Diagonals are solved after the obliques (`--diagok`).
+
+| orbit | bound | stages | without face turns | status |
+|---|---|---|---|---|
+| chiral pair of obliques | **99** = 19 + 27 + 22 + 31 (certified 2026-10-12) | aUbU 19; aDbD 27; a ring 22; b ring 31. No boundary pass: every stage is a plain sum, and each has a certificate of explicit solving sequences (below). aDbD 28 -> 27 and b ring 33 -> 32 -> 31 came from ML-agent sequences (57 + 7 + 196) and earlier hardest-state DFS solutions, merged with certmerge | 21, 31, 25, 36 | **certified**: certcheck PASS on all four stages. Previous: 100 (b ring 32), 101 = 19 + 28 + 54 (boundary pass a ring + b ring <= 54) |
+| oblique, "free" | **40** | UD 19, LFRB 22; boundary pass proves 40 (4 canonical UD states; 39 has 90,356, too slow) | 20, 24 (42 with the boundary pass) | proved; 39 not attempted |
+| single oblique | **63** | UD 33, LFRB 34; boundary pass proves 66, 65, 64, 63 (5, 17, 45, 1,035 canonical UD states); 62 started (28,851 states) | 35, 36 (71) | proved; the 62 pass is paused |
+| diagonal | **44** | D 10, U 16, LFRB 18 (one run, orbitbound30 with stripping; LFRB 1,104 positions at 18) | 12, 17, 20 with the current tool (49); 54 certified | 44 from one run; no certificate |
+| mid | -- | | 26, 28 (54) | run paused (orbitbound34) |
+
+#### The certified 99 (2026-10-12; was 100 earlier the same day)
+
+Certificate: `cert/obl23pair/cf-xfree/` (1.3 GB; `MANIFEST` lists every segment). One file per
+stage, `stages/<solved>..<target>/wNN.txt`, NN = target pieces off their home face; one solving
+sequence per line (no positions, no header), one line per symmetry class.  The position of a line
+is the sequence run backwards from the solved stage.  `devtools/certcheck STAGEDIR` re-derives the
+stage symmetries, checks that every state is covered and solved within the stated length, and
+checks side effects on 6x6x6..10x10x10 (no centre outside the pair and the diagonals leaves its
+colour).  `devtools/certmerge STAGEDIR FILE...` merges shorter sequences.  `devtools/pairdepth`
+shows the same sequences work for every oblique pair (p, q) (checked on 25x25x25, all 110 pairs).
+
+| stage | solved .. target | classes | worst |
+|---|---|---:|---:|
+| 1 | none .. aUbU | 14,119,851 | 19 |
+| 2 | aUbU .. aDbD | 2,936,935 | 27 |
+| 3 | aUaDbUbD .. aLaFaRaB (a ring) | 7,891,339 | 22 |
+| 4 | aUaLaFaRaBaDbUbD .. bLbFbRbB (b ring) | 7,891,339 | 31 |
+| | | **total** | **99** |
+
+Length distribution of the certificate lines (number of symmetry classes whose stored solving
+sequence has that many moves; these are actual sequence lengths, after merges and the ML/DFS
+improvements, so they can be slightly below the table distances above):
+
+| length | aUbU | aDbD | a ring | b ring |
+|---:|---:|---:|---:|---:|
+| 0 | 1 | 1 | 1 | 1 |
+| 4 | 26 |  | 12 |  |
+| 5 | 56 |  | 56 |  |
+| 6 | 389 |  | 58 |  |
+| 7 | 1,183 | 16 | 475 | 46 |
+| 8 | 5,732 | 148 | 1,801 | 58 |
+| 9 | 25,021 | 200 | 5,787 | 107 |
+| 10 | 70,857 | 386 | 12,567 | 823 |
+| 11 | 244,161 | 1,222 | 49,188 | 2,041 |
+| 12 | 630,748 | 3,228 | 127,514 | 2,138 |
+| 13 | 1,500,570 | 8,920 | 262,870 | 2,172 |
+| 14 | 2,465,023 | 10,795 | 699,097 | 7,755 |
+| 15 | 3,363,591 | 29,590 | 1,161,534 | 35,190 |
+| 16 | 3,118,018 | 66,257 | 1,716,617 | 73,886 |
+| 17 | 2,060,672 | 127,036 | 1,713,323 | 140,975 |
+| 18 | 597,151 | 264,497 | 1,299,668 | 236,667 |
+| 19 | 36,652 | 225,600 | 626,638 | 418,780 |
+| 20 |  | 262,523 | 188,822 | 754,747 |
+| 21 |  | 383,531 | 24,949 | 726,886 |
+| 22 |  | 566,536 | 362 | 672,618 |
+| 23 |  | 438,648 |  | 1,024,970 |
+| 24 |  | 355,376 |  | 1,602,372 |
+| 25 |  | 140,229 |  | 1,016,267 |
+| 26 |  | 49,486 |  | 671,192 |
+| 27 |  | 2,710 |  | 357,661 |
+| 28 |  |  |  | 84,775 |
+| 29 |  |  |  | 40,930 |
+| 30 |  |  |  | 17,114 |
+| 31 |  |  |  | 1,168 |
+| **classes** | 14,119,851 | 2,936,935 | 7,891,339 | 7,891,339 |
+| **worst** | 19 | 27 | 22 | 31 |
+
+How the last two moves came: aDbD had 57 classes at 28; the ML agent solved them in 24-27 moves
+(~/mlcube/adbd28_improved.txt).  b ring: the certificate run (orbitbound53 with `CERT`, refined
+table) left 32 classes at 33; 6 were in the ML agent's first 77, 19 had been shortened by the
+earlier hardest-state DFS (cert/bring-hardest.seq.txt, 29-32 moves) and 7 were new; the ML agent
+solved those 7 in 28-32 moves (~/mlcube/bring33_remaining_improved.txt).  Then all 196 classes
+at 32 (cert/bring-32.seq.txt) were solved by the ML agent in 27-31 moves
+(~/mlcube/bring32_improved.txt; 4 at 27, 14 at 28, 42 at 29, 68 at 30, 68 at 31), giving 99.
+Next targets: the b ring's 1,168 classes at 31 (cert/bring-31.seq.txt; 1,166 in w16, 2 in w15)
+and the a ring's 362 at 22.
+
+Purity (sequences that move no other centre piece at all, not just keep colours): on 6x6x6 every
+b-ring sequence is pure; on 7x7x7 and up 99,521 of the b ring's 7,891,339 are pure (the rest permute
+same-coloured pieces of other orbits, which is harmless).  `certcheck` prints the counts per stage.
+
+#### Distance distributions of the 105 (centres first)
+
+Number of stage positions at each distance (moves, single-layer metric, merges counted), from the
+`--faceturns` run (orbitbound30, tables saved as scratchpad pairF.0..3).  Blank: none.
+
+| distance | aUbU (nothing solved) | aDbD (aUbU solved) | a ring (aU aD bU bD solved) | b ring (all but the b ring solved) |
+|---:|---:|---:|---:|---:|
+| 0 | 1 | 1 | 1 | 1 |
+| 4 | 200 |  | 80 |  |
+| 5 | 440 |  | 432 |  |
+| 6 | 2,914 |  | 376 |  |
+| 7 | 9,370 | 128 | 3,616 | 308 |
+| 8 | 45,384 | 1,120 | 13,998 | 460 |
+| 9 | 199,476 | 1,520 | 45,672 | 676 |
+| 10 | 565,004 | 1,648 | 85,850 | 5,212 |
+| 11 | 1,950,440 | 1,840 | 331,692 | 13,536 |
+| 12 | 5,039,823 | 4,464 | 976,190 | 14,524 |
+| 13 | 11,995,822 | 49,288 | 2,024,032 | 16,180 |
+| 14 | 19,705,916 | 70,568 | 5,221,788 | 47,142 |
+| 15 | 26,894,432 | 186,436 | 8,727,256 | 229,572 |
+| 16 | 24,946,424 | 281,676 | 13,213,177 | 514,566 |
+| 17 | 16,490,614 | 331,976 | 13,333,584 | 954,904 |
+| 18 | 4,773,092 | 669,220 | 10,695,184 | 1,473,708 |
+| 19 | 292,524 | 1,408,836 | 5,868,236 | 2,741,018 |
+| 20 |  | 2,087,200 | 2,155,940 | 5,661,580 |
+| 21 |  | 2,294,640 | 351,476 | 5,592,752 |
+| 22 |  | 2,446,764 | 14,420 | 5,035,916 |
+| 23 |  | 2,403,344 |  | 7,516,360 |
+| 24 |  | 3,443,144 |  | 12,891,580 |
+| 25 |  | 3,910,544 |  | 8,739,756 |
+| 26 |  | 2,513,472 |  | 6,009,444 |
+| 27 |  | 1,052,448 |  | 3,808,348 |
+| 28 |  | 298,504 |  | 882,977 |
+| 29 |  | 15,164 |  | 353,220 |
+| 30 |  | 80 |  | 512,400 |
+| 31 |  |  |  | 37,232 |
+| 32 |  |  |  | 7,842 |
+| 33 |  |  |  | 1,762 |
+| 34 |  |  |  | 24 |
+| **total** | 112,911,876 | 23,474,025 | 63,063,000 | 63,063,000 |
+| **worst** | 19 | 30 | 22 | 34 |
+
+These are the unseeded tables.  Seeded (pairing seeds, below): aDbD 28 with obl11p.all (264 states
+at 28), a ring 22 (2,874 at 22), b ring 33 (1,314 at 33, no state at 34).
+
+#### Distance distributions behind the 101
+
+The four tables the 101 proof loads (scratchpad pairY.0..3 = pairG.0, pairG.1, pairG.2, pairX.2):
+aUbU and the a ring from the `--faceturns` run with obl11p.all@aUbU, aDbD with obl11p.all, and the b
+ring seeded with tcwalk up to 10 moves.  The a ring and b ring are then combined by the boundary
+pass (a ring + b ring <= 54, not 22 + 33 = 55).
+
+| distance | aUbU | aDbD | a ring | b ring (seeded) |
+|---:|---:|---:|---:|---:|
+| 0 | 1 | 1 | 1 | 1 |
+| 4 | 200 |  | 80 |  |
+| 5 | 440 |  | 432 |  |
+| 6 | 2,914 |  | 376 |  |
+| 7 | 9,370 | 128 | 3,616 | 308 |
+| 8 | 45,384 | 1,120 | 14,000 | 460 |
+| 9 | 199,476 | 1,520 | 46,000 | 676 |
+| 10 | 565,004 | 2,736 | 99,488 | 5,316 |
+| 11 | 1,950,440 | 8,352 | 392,484 | 14,848 |
+| 12 | 5,039,823 | 22,816 | 1,016,958 | 17,100 |
+| 13 | 11,995,822 | 69,968 | 2,098,812 | 15,966 |
+| 14 | 19,705,916 | 86,056 | 5,578,340 | 49,004 |
+| 15 | 26,894,432 | 221,240 | 9,266,348 | 235,742 |
+| 16 | 24,946,424 | 517,112 | 13,727,723 | 552,099 |
+| 17 | 16,490,614 | 1,012,012 | 13,705,252 | 1,012,865 |
+| 18 | 4,773,092 | 2,108,552 | 10,394,114 | 1,582,836 |
+| 19 | 292,524 | 1,726,908 | 5,011,188 | 2,803,142 |
+| 20 |  | 2,115,228 | 1,506,310 | 5,823,160 |
+| 21 |  | 3,074,744 | 198,604 | 5,810,500 |
+| 22 |  | 4,513,320 | 2,874 | 5,128,336 |
+| 23 |  | 3,554,744 |  | 7,323,284 |
+| 24 |  | 2,884,944 |  | 12,727,716 |
+| 25 |  | 1,131,012 |  | 8,816,792 |
+| 26 |  | 399,988 |  | 5,891,368 |
+| 27 |  | 21,116 |  | 3,754,537 |
+| 28 |  | 408 |  | 901,868 |
+| 29 |  |  |  | 274,972 |
+| 30 |  |  |  | 288,764 |
+| 31 |  |  |  | 26,072 |
+| 32 |  |  |  | 3,954 |
+| 33 |  |  |  | 1,314 |
+| **total** | 112,911,876 | 23,474,025 | 63,063,000 | 63,063,000 |
+| **worst** | 19 | 28 | 22 | 33 |
+
+All stage tables are saved (scratchpad pairF.*, freeF.*, singleF.*, diagF.*) so
+boundary passes reload them.  Pools: pair3, p8s10, p9, eg8, c12x, and the
+purified obl11p.all (free) / obl11p.single (single); diag3, diag2, diag_x10;
+mid3, mid2, mid_x10.
+
+Every bound is the sum of exact per-stage worst cases (each stage searched
+exhaustively over all its positions), so it is rigorous given the algorithm
+pools: each pool algorithm changes only its orbit.  For the diagonal pools that
+was re-checked independently on full 4x4x4 to 9x9x9 cubes in JavaScript (214
+algorithms of the certificate, all pure, all lengths exact).  The pair pools
+carry a flag `D1` for algorithms that also move the diagonal orbit; those are
+excluded (46,872 of p9's 79,280 classes, 33,299 of eg8's, 1,480 of p8s10's).
+
+Diagonals afterwards (`--diagok`): when the diagonal orbit is solved after the
+obliques, an oblique stage may also use the D1 algorithms, since they change
+nothing but the oblique pair and the diagonals, and the diagonal bound (54)
+holds from any starting state.  So for a whole-cube centre bound the oblique
+numbers to use are the `--diagok` ones.  Single-orbit algorithms: 139,936 with
+D1 against 112,474 without; the extras are mostly 10 and 11 movers (10:
+24,448 vs 17,032; 11: 40,914 vs 18,474) plus a few 8 and 9 movers, so the
+expected gain is modest for single and possibly larger for free.
+
+Unified reduction (the "bonus" question): the best plans found for all three
+orbit types have the same shape, **first the U and D faces, then the four side
+faces together**, keeping U and D.  For the diagonal the first part is done as
+D then U (12 + 18 = 30) only because the joint UD stage was too expensive at
+the budget used (with 4-5 move algorithms alone it does not reach every
+position); for the mid orbit the joint UD stage gives 26.  This is the familiar
+"U/D centres first, then the ring" order, applied orbit by orbit.
+
+## Obliques first (user, 2026-10-09: obliques dominate on big cubes)
+
+- devtools/obliquepool.cpp extracts symmetry classes from 6centers.log.xz
+  (twsearch: 26,486,548 sequences of up to 11 moves on 8^3 changing only one
+  oblique pair and the diagonals): 7,179,911 classes (4:6 5:10 6:183 7:894
+  8:9,577 9:68,623 10:727,723 11:6,372,895), saved as devtools/obl11.all.cls;
+  2,443 single-orbit classes (8:76 9:47 10:766 11:1,554), obl11.single.cls.
+- For one orbit this adds little: 6,720 new permutations, almost all 10 and
+  11 movers; still only six 6-movers.  Short single-orbit algorithms are
+  rare, so single-orbit gains must come from merging and budgets.
+- For the pair / partner-ignored case the full pool up to 10 moves (~77M
+  images) is the big addition over p9 (complete to 9) + eg8.
+- Running in order: single `--merge --diagok --plan UD,LFRB`; free, same;
+  pair `--merge --diagok --plan aUaD,bUbD,aLaFaRaB,bLbFbRbB` (joint: stage 2
+  keeps only a's U and D, so it may disturb a's sides and has many more
+  algorithms than a single orbit; only the last stage is single-orbit);
+  free with obl11.all up to 10 moves.
+
+`--refine` (orbitbound4): after a stage, the positions at the worst distance
+are re-solved with every usable algorithm (no budget) as the first step and
+the stage table for the rest, level by level while all improve.  It only
+helps where the budget cut algorithms (it cannot beat an exact stage search
+with the full pool); the single-oblique stages ran at cost <= 9 and <= 10.
+
+Search order (orbitbound7+): discovery order by target distance (the user's
+suggestion): for each target d, sources at a < d with algorithms of cost
+exactly d - a (less merge saving); a position first reached is final, and the
+search stops when the last position is found, so pairs whose sum exceeds the
+worst case are never tried.  Identical histograms to the old level-synchronous
+Dijkstra (kept as `--oldsearch`), 57x faster on the diagonal D stage (cost <=
+7), 6x with merging, about 2.3x on the single-oblique UD stage.
+Each stage line now prints the distance distribution (after refinement).
+
+Full-set seeding (user's suggestion, orbitbound10, `--fullwork W`, default
+2e11): a source level whose (positions x all usable actions) <= W uses every
+usable action, not just the budget set.  The low levels are tiny (the goal is
+one position), so this is nearly free and gives the best short paths.  Still
+an exact shortest-path search in that graph, so still valid.  Test (diagonal,
+diag3 + diag2, merge, budget 2e7 = cost <= 5): plain search cannot solve stage
+D; with seeding 12 + 19 + 13 + 20 + 12 = 76, the same as the unrestricted
+search.
+
+Band refinement (orbitbound9+, `--refine`): every position in the top levels
+(as many as fit `--refinework`) gets dist = min(dist, cost(A) + dist(A(x)))
+over every usable algorithm, repeated until nothing improves, so gains
+propagate up through the band.
+
+Performance round (2026-10-09 evening), measured with /usr/bin/time -l on the
+diagonal LFRB stage (63M states, cost <= 7, --merge, no seeding):
+| step | time | instructions | per pair |
+|---|---|---|---|
+| level-synchronous (old) | 325 s | 2.80e13 | 657 |
+| half-word ranking (user's idea: base-k half words, rank = offHigh[hi] + idxLow[lo], tables 3^12 / 4^8) | 216 s | 1.52e13 | 357 |
+| + stage symmetry (16; canonical sources only, discoveries and new merge bits written to all images) | 21 s | 1.42e12 | 430 (13x fewer pairs) |
+| + actions bucketed by (cost, first move) in merge mode | ~9 s | 1.09e12 | 330 |
+Prefetching gave nothing (IPC 4-5: instruction bound, not memory bound).
+Fixes found on the way: ClassPool::expand(distinct) dropped images with the
+same permutation but different first/last moves (merge action set was not
+symmetric; now every image is loaded); small stages ran on one thread (chunk
+size); refine skipped single algorithms to the goal (prune used cost + 1), which
+also made its result order dependent.  Symmetric and plain searches and refines
+now give identical histograms (checked with and without merging), and
+`--checkrefine` verifies a witness for every refined value.
+
+Pair plans (2026-10-09 night): finishing one orbit and then the other always ends
+with a single-orbit-only stage (the 36).  aUaD then bUbD (keeping only aU, aD)
+gave 20 then 35: keeping a's U and D is as restrictive as keeping all of a.
+Results: face by face aUbU,aDbD,aLbL,aRbR,aFaBbFbB = 21+31+22+29+18 = 121;
+aUbU,aDbD then aLbL, aRaFaB, bRbFbB = 52+22+28+30 = 132; aUbU,aDbD then a ring,
+b ring = 52+25+36 = 113 (best), now **112** with the boundary pass on
+aUbU|aDbD (51).  Conjugation by face turns (`--conj 1`,
+2.6M single-orbit entries, many more short ones) left single at 35+36 = 71:
+the hardest positions are not short of algorithms.
+More plans from aUbUaDbD (52): aLaR (b ring free) 22, bLbR (a's U,D,L,R kept)
+34, aFaBbFbB 18 -> 126.  Keeping most of an orbit fixed is nearly as costly
+as keeping all of it.
+
+Why single-orbit stages stick at 35/36 (2026-10-10 night): the worst UD positions
+(16) have all eight U and D pieces on two side faces; the worst LFRB positions
+(352) have none of the 16 pieces home (e.g. two faces exchanged).  Single-orbit
+algorithms are mostly 8-move 3-cycles, which place at most 2-3 tracked pieces
+each, so these need about 4.5 algorithms whatever the pool.  Pools tried, all
+with the same 35/36 and the same worst counts: original (205k entries), face
+conjugation (`--conj 1`, 2.6M), pair-to-single compositions (`--pairsingle 8`:
+A then C^-1 for pair algorithms leaving the partner in the same colour
+arrangement, 98.8M compositions, 9.58M entries up to 16 moves).
+So avoid stages that keep a whole orbit fixed: running aLaR (b ring free) then
+one joint stage b ring + a's F,B (63M x 70 = 4.4e9 states, ~40 GB).
+Result: aLaR 22, then the joint stage = **55** (52+22+55 = 129, worse).  At
+4.4e9 states the budget allowed only cost <= 7 actions (464), and the top of
+the distribution (46..55, ~280M states) is a separate bump of positions that
+the short actions reach badly; refinement with 63k actions got none below 55.
+A joint stage this large needs a far bigger pool than fits the budget.
+
+Earlier idea: advance both orbits together face by face, so every stage, including
+the last, can use genuine pair algorithms: aUbU (113M states), aDbD (23M),
+aLbL (3.3M), aRbR (245k), aFaBbFbB (4,900).
+
+## Pool purity (2026-10-10)
+
+The twsearch log behind obl11 (`6centers.log.xz`) contains known-bad lines,
+which the README pipeline drops with `bad.index` / `good.pl`; obliquepool read
+the log directly and did not.  Re-checked every class representative on a full
+8x8x8 sticker simulation (corners, wings and the other obliques exactly
+restored; the (2,3)/(3,2) pair and the diagonals may change):
+
+- obl11.all: 1,490 of 7,179,911 classes impure (8: 6, 9: 6, 10: 255, 11: 1,223);
+- obl11.single: 2 of 2,443 impure (both 11 moves);
+- pair3, p8s10, p9, eg8, c12x: all pure.
+
+The purified pools are devtools/obl11p.all.cls and obl11p.single.cls.  The
+pair results never used obl11.  Free with obl11p.all: LFRB again 24, and the boundary
+pass again proves 42.  Single with obl11p.single (plus slice conjugates) is again 35 + 36.
+
+## Centres first: free face turns (2026-10-10, user's ring idea)
+
+If centres are solved before edges and corners, a pool algorithm only has to
+preserve the other centre orbits.  An outer face turn keeps every centre on
+its face, so it is a legal cost-1 action in every stage (`--faceturns`; no
+merges are counted with these one-move actions, which is conservative).  This
+assumes the orbits are solved one after another.
+
+Ring order by itself gives little: orbit (i,j) is moved only by slices i, j
+and the faces, and under those every other orbit containing depth i acts the
+same way, as does every other orbit containing depth j.  So it does not
+matter whether such an orbit lies in an inner or outer ring; only the first
+orbit solved at a given depth gets that slice for free.
+
+Diagonal (diag3 + diag2 + diag_x10, merging, current tool): D 12, U 17,
+LFRB 20 = 49 without face turns; 11 + 16 + 18 = 45 with them (an earlier
+run; the table above has the later 10 + 16 + 18 = **44**).
+
+## Either order for the last two pair stages (`--eitherorder`, orbitbound34)
+
+After aUbU and aDbD both rings remain, and either may be solved first.  A
+reflection swapping the orbits maps "b ring first, then a ring" onto the forward
+stages, so the same two tables serve both orders.  In the boundary pass, for an
+a-ring state whose forward carries leave some b-ring states uncovered, each such
+full colouring is mapped through the swapping symmetry and solved forward
+(a-ring paths plus the b-ring table); the bound holds if one order is within X.
+The random check (`BOUNDARYCHECK`) also tries both orders.  Result: a ring + b
+ring <= 55 (forward alone: 56), so the pair was 19 + 28 + 55 = 102.  With the b-ring
+table seeded to 33 (next section) the same pass proves 54, so the pair is now **101**.
+
+## New algorithms and table seeding (2026-10-11)
+
+**tcwalk** (devtools/tcwalk.cpp): every algorithm for a centres-first oblique solve, by
+depth-first search over the 54 moves (faces, depth-2, depth-3) on the (2,3) pair.  A
+sequence keeps every other oblique orbit colour-solved iff both projections (drop the
+depth-3 turns; drop the depth-2 turns and rename 3 to 2) return the 5x5x5 T-centres to
+their faces (checked on 26,000 sequences and 167,618 re-interleaved pool algorithms against
+an 8x8x8).  Pruning: exact distances for every 5^3 T-centre colouring within 6 moves, and
+the slice twists (every pool class, 7.4M, has all slice twists 0).  Cores only (no face turn
+in the first or last same-axis run), one per symmetry class; diagonals, edges and corners
+ignored.  Complete against the pools up to 8 moves (every pool class, stripped, is present).
+Classes of (2,3)-pair effects: 4:5 5:14 6:142 7:1,456 8:12,477 9:156,076 10:1,655,934
+(length 10: 2.2 h).  Reports every cycle structure with its shortest sequence (136 up to 8;
+the one-orbit 3-cycle first at 8).
+
+**Pairing seeds** (orbitbound `PAIRSEED=I`): bucket every algorithm by where each solved
+group's pieces go (64-bit key, sorted); within a bucket A C^-1 keeps the solved groups.  The
+bucket of algorithms already legal for the stage is skipped (their products are
+compositions the search has).  Products run at about 4e7/s; a product is a seed when its
+state's table distance exceeds its cost.  Seeds are propagated (dist(b(s)) <= cost(b) +
+dist(s) over all actions, no merges counted), `PAIRTARGET=k` also tries every product on
+the states at the top k distances, `PAIRROUNDS` repeats until nothing changes, and
+`PAIRSAVE` writes the improved table.  With tcwalk up to 9 moves:
+- b ring: 1.7e9 products, worst still 34 but 34: 24 -> 8, 33: 1,762 -> 1,370; then with tcwalk
+  up to 10 moves (174.7M algorithms, 7.4e10 products, 36 GB): the last 8 fell by 5, worst 33
+  (1,314 states);
+- a ring: 8.75e10 products, worst 22 (2,874 states at 22);
+- aDbD: 2.1e11 products, worst 28 (264 states at 28).
+A seeded table serves as stage B of a boundary pass (only its values are used); stage A
+needs action paths, so it keeps its original table.
+
+## Deeper seeds: conjugation by slices (`--conjslice C`)
+
+X A X^-1 is as pure as A for every move X (moves keep each orbit in place, so
+the support stays in A's orbit).  `--conjslice C` adds these for every pool
+algorithm of cost >= C and all 54 moves, slices included.  Single oblique with
+C = 8: 205k entries become 7.65M (mostly new 12-14 movers); the UD stage
+stays 35.
+
+## Looking across a stage boundary (2026-10-10 night)
+
+The staged bound adds each stage's worst case, but the worst cases rarely meet.
+
+**Orientation (`--firstmin N`, no gain).**  The first stage can be applied with any
+face or axis as "U", so its effective bound is the largest k such that some full
+colouring is at >= k in every orientation (found by forward-checking search over
+the bad states, with the witness re-checked through the forward symmetry maps).
+Every case so far has a symmetric witness: free UD 20 (4 states; witness a
+face pattern), pair aUbU 21 (208 states), single UD 36 on the pool without
+obl11.single (witness: whole faces permuted).  So nothing is gained.
+
+**Boundary (`--boundary I`).**  Stages A = I and B = I+1.  A path P solving the
+A-state u (cost c) carries the remaining pieces onto B's positions by a
+permutation pi_P.  The rest colourings r with c + dB(pi_P r) > X are
+pi_P^-1(B states beyond X - c): an explicit small set for the cheapest path,
+which is then filtered by every other path found for u (up to 3,000 distinct
+carries, best-first depth-first search over A's actions, merges counted).  A + B
+<= X holds once that set is empty for every u with dA(u) > X - max(B).
+Check (`BOUNDARYCHECK=N`): N random hard u with random rest colourings, solved
+directly on the coloured positions without the carry bookkeeping.  On a small
+diagonal pool, D 12 + U 17 = 29 became 27 (300 random checks, worst 27).
+`DUMPDIST=prefix` saves the tables, and `LOADDIST=prefix` reloads them, skipping
+the search.
+
+## Cancellation between algorithms (`--merge`, 2026-10-09)
+
+Per state, besides the one-byte distance, keep a 54-bit mask of the last
+moves of its cheapest paths (8 bytes per state, not 36x the states).  An
+algorithm whose first move is the same layer as one of those last moves
+cancels (-2, amounts summing to 0 mod 4) or merges (-1).  Actions become
+(free-position permutation, first move, last move), cheapest per triple, kept
+when at most one move above the permutation's cheapest; composition pruning
+is off.  Paths kept only at a longer distance are dropped, deeper cascades and
+commuting-move merges are not counted, and the start of each stage assumes no
+previous move, so this is still a valid upper bound.
+Test, diagonal with diag3 + diag2, plan D,U,L,R,FB: 12+22+14+24+12 = 84
+without, 12+19+13+20+12 = **76** with merging.  Running: diagonal D,U,LFRB and
+mid UD,LFRB with merging and full pools.
+
+`--worst FILE` (orbitbound, wingbound) writes every position at each stage's
+worst distance when there are at most 1e6, for later analysis (e.g. re-solving
+only those with a deeper search to lower a stage bound by one).  Diagonal with
+3-cycles only, D,U,LFRB: 32 + 32 + 64 = 128; 4,845 / 1,820 / 14,697 worst
+positions.
+
+## Approach
+
+Staged worst-case analysis (devtools/orbitbound.cpp):
+
+- The 24 positions of an orbit form six groups of four (one per face colour).
+  A stage takes the set S of already-solved faces and solves a further set T,
+  using only algorithms that keep every face of S solved (they may permute
+  pieces within a solved face).
+- Stage state: for each unsolved position, which face of T its piece belongs
+  to, or "other".  Sizes: one face from scratch C(24,4) = 10,626; two faces
+  with one solved 8,817,900; UD from scratch 51,482,970; the four side faces
+  with U, D solved 16!/(4!^4) = 63,063,000.
+- Exact worst case M(S, T): Dijkstra from the goal (pools are closed under
+  inversion, so distance to and from the goal agree), each algorithm costing
+  its move count, level-synchronous and multithreaded with atomic min on a
+  uint8 distance array.  No cancellation between consecutive algorithms is
+  counted, so the result is an upper bound.
+- Algorithms are reduced per stage to their action on the unsolved positions
+  (cheapest per action), compositions of a short algorithm and another
+  algorithm of no greater total cost are dropped, and an edge budget
+  (states x actions, default 4e11) drops the costliest whole cost classes for
+  big stages.  Any subset still gives a valid bound if it reaches every
+  position; the result is just possibly weaker.
+- B(S) = min over T of M(S, T) + B(S + T), memoised over symmetry classes of
+  (S, T) under the 48 cube symmetries (24 for single obliques); B = 0 once one
+  face is left.  `--maxstates` caps the stage size considered.
+- Modes: `diag`, `mid` (24 positions), `single` (pair-pool algorithms that keep
+  the partner orbit colour-solved, restricted to one orbit), `free` (partner
+  ignored), `pair` (48 positions, 12 groups; with `--plan` to evaluate a given
+  stage sequence instead of searching).
+- Pools: diag3 + diag2 + diag_x10 (every diagonal algorithm up to 10 moves,
+  49M images); mid3 + mid2 + mid_x10 (5.4M); pair3 + p8s10 + p9 + eg8 + c12x,
+  D0 only (single: 112,474 one-orbit algorithms, shortest 6 moves; free:
+  2.42M, shortest 4).
+
+Pair bound, following the suggestion: solve orbit a with "partner ignored"
+algorithms (free bound), then orbit b with algorithms that keep a solved,
+which is the single-oblique bound by symmetry.  So pair <= free + 81.  The
+`--plan` mode can also try genuinely joint stages (e.g. aD+bD together,
+10626^2 = 1.1e8 states), but the full 12-group DP is too big.
+
+Certificates and the write-up (devtools/orbitcert.cpp, bench/orbitbound/):
+
+- orbitcert recomputes the chosen stages, then shrinks each stage's algorithm
+  list: Dijkstra keeps, among equal distances, the parent of best priority;
+  priorities are re-ranked by tree usage over three passes; the classes the
+  tree uses reach every position at the same distance, and a final Dijkstra
+  with every image of just those classes confirms the worst case.  It writes
+  JSON: per stage the classes (representative move text; depth placeholder 3
+  written as 2 for the diagonal), histogram, a hardest position with its
+  solution, and example solves (scramble = 40 random 3-cycles).
+- Diagonal certificate so far: stage 1 needs 136 classes (all of at most 7
+  moves) for worst 12; stage 2 needs 84 classes for worst 18.
+- page.html + build.py make a single self-contained HTML page: the claim,
+  the puzzle and method for a cuber, per-stage histograms and algorithm lists,
+  hardest positions, step-through example solves on a cube net, and in-browser
+  checks that use an independent N x N x N simulator: (1) every listed
+  algorithm changes only the orbit on several cube sizes; (2) exhaustive
+  stage searches in a Web Worker.  Tested in node: purity on 4..9 and stages 1
+  and 2 reproduce the certificate's worst cases and histograms exactly
+  (13 s and 1 s).  Stage 3 (63M positions) is too slow for a browser at about
+  100 ns per edge; it is offered as a slow optional check.
+
+## Running now
+
+- orbitcert for the diagonal, stage 3 (UD/LFRB, 2,624 actions of cost <= 7),
+  three priority passes plus a final check, about 25 minutes per pass while
+  sharing the machine; then 12 example solves.  Output:
+  scratchpad diag_cert.json / diag_cert.log.
+- orbitbound `--diagok single`, then `--diagok free`, maxstates 1e8
+  (scratchpad single_dok.txt, free_dok.txt).
+
+## Still to do
+
+1. Diagonal: done.  Certificate bench/orbitbound/diag_cert.json; page
+   built with `python3 bench/orbitbound/build.py OUT.html
+   diag=bench/orbitbound/diag_cert.json` and published.
+2. Free oblique bound; then the pair bound free + single, and try joint pair
+   stages with `--plan` (aD+bD together, etc.) to beat it.
+3. Certificates and page sections for mid and single oblique (build.py needs
+   their text; the page already handles kind `mid` and `oblique`, with the
+   oblique (1,2) orbit at depths 2 and 3 checked on 6x6x6 and up).
+4. Tighten the bounds:
+   - diagonal: a joint UD stage with cost <= 7 algorithms (51M x 68k actions,
+     a few hours) could beat D 12 + U 18 = 30 (mid gets 26 jointly);
+   - all orbits: the side-face stage ran at the edge budget (cost <= 7 for the
+     diagonal, 1,074 actions for mid); a bigger budget or a symmetry-reduced
+     state space (16 symmetries keep U and D) should lower 24 / 28 / 40;
+   - single oblique has few short algorithms (6 six-movers): longer pools
+     restricted to one orbit (e.g. from twsearch) would help most here.
+5. In-browser stage-3 check: a symmetry-reduced search or a compact
+   certificate (one action index per canonical state) would make it fast.
+6. Edge (wing) orbits.  Wings are solved first, so a wing algorithm only
+   has to preserve corners, middle edges and the other wing orbits; centres
+   may end up anything (user, 2026-10-09).  The wing pools are exactly that:
+   wing3 (all 3-cycles, 8 moves) and wing_d6c (1,223,161 permutations up to
+   13 moves, mostly <= 8; single slice turns cost 1); devtools/wing_d8 has
+   10.4M more.  Tool: devtools/wingbound.cpp (wings are distinct pieces; a
+   stage places a chunk of specific wings, state = their positions, n!/(n-k)!
+   states; order and chunk sizes are options, `--random R` tries random
+   orders).
+   - First test, chunks 4,4,4,4,4,4 in model order: 12 + 15 + 18 + 18 + 23
+     for 20 wings, then the last 4 wings are unreachable: with 20 wings fixed
+     the pools hold only 3-cycles, so odd arrangements of the last 4 cannot be
+     reached.  Wing parity is free (a slice quarter turn is a 4-cycle), so the
+     final stage must be big enough to contain odd algorithms.
+   - chunks 4,4,4,4,8: 12 + 15 + 18 + 18 + 30 = 93.
+   - chunks 4,4,5,11: 12 + 15 + 20 + 30 = **77** (last 11 wings jointly,
+     39,916,800 states, 1,016 usable algorithms, 201 s).
+   - chunks 4,5,4,11: 12 + 17 + 18 + 30 = 77 as well.
+   - Next: add wing_d8, choose the wing order (edge partners together vs
+     spread; `--random`), certificate and page section.
+7. Bound for an N x N x N cube's whole centre set: sum over orbits, or better,
+   a reduction that does the UD stage for every orbit at once.

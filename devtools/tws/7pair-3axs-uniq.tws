@@ -1,0 +1,83 @@
+# 7pair-3axs-uniq.tws: uniquifier for 7pair-3axs.tws: the side pieces of PAIRA, PAIRB all distinct (16
+# each), the same moves and rotations.
+Name PuzzleGeometryPuzzle
+
+Set PAIRA 16 1
+Set PAIRB 16 1
+
+Solved
+PAIRA
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+PAIRB
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+End
+
+Move F
+PAIRA
+1 2 3 4 8 5 6 7 9 10 11 12 13 14 15 16
+PAIRB
+1 2 3 4 8 5 6 7 9 10 11 12 13 14 15 16
+End
+
+Move B
+PAIRA
+1 2 3 4 5 6 7 8 9 10 11 12 16 13 14 15
+PAIRB
+1 2 3 4 5 6 7 8 9 10 11 12 16 13 14 15
+End
+
+Move 2D
+PAIRA
+1 2 3 16 5 6 7 4 9 10 11 8 13 14 15 12
+PAIRB
+1 2 15 4 5 6 3 8 9 10 7 12 13 14 11 16
+End
+
+Move 3D
+PAIRA
+1 2 15 4 5 6 3 8 9 10 7 12 13 14 11 16
+PAIRB
+1 2 3 16 5 6 7 4 9 10 11 8 13 14 15 12
+End
+
+Move 3U
+PAIRA
+5 2 3 4 9 6 7 8 13 10 11 12 1 14 15 16
+PAIRB
+1 6 3 4 5 10 7 8 9 14 11 12 13 2 15 16
+End
+
+Move 2U
+PAIRA
+1 6 3 4 5 10 7 8 9 14 11 12 13 2 15 16
+PAIRB
+5 2 3 4 9 6 7 8 13 10 11 12 1 14 15 16
+End
+
+Move L
+PAIRA
+4 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16
+PAIRB
+4 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16
+End
+
+Move R
+PAIRA
+1 2 3 4 5 6 7 8 12 9 10 11 13 14 15 16
+PAIRB
+1 2 3 4 5 6 7 8 12 9 10 11 13 14 15 16
+End
+
+Move y
+PAIRA
+13 14 15 16 1 2 3 4 5 6 7 8 9 10 11 12
+PAIRB
+13 14 15 16 1 2 3 4 5 6 7 8 9 10 11 12
+End
+
+Move z
+PAIRA
+7 8 5 6 3 4 1 2 15 16 13 14 11 12 9 10
+PAIRB
+7 8 5 6 3 4 1 2 15 16 13 14 11 12 9 10
+End

@@ -1,0 +1,2 @@
+# append-only logs: a merge keeps both machines' new entries (they are timestamped)
+journal.md merge=union

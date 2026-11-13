@@ -1,0 +1,52 @@
+# devtools/axcheck 4op /var/tmp/orbitsolve/certbuild/obl23pair-axis-2026-11-04/stages/4op
+stage 4op: 20 length files
+16 cube symmetries keep the stage
+  l00: 1 lines, longest 0 (0s)
+  l04: 4 lines, longest 4 (0s)
+  l05: 6 lines, longest 5 (0s)
+  l06: 8 lines, longest 6 (0s)
+  l07: 37 lines, longest 7 (0s)
+  l08: 125 lines, longest 8 (0s)
+  l09: 268 lines, longest 9 (0s)
+  l10: 636 lines, longest 10 (0s)
+  l11: 1611 lines, longest 11 (0s)
+  l12: 4469 lines, longest 12 (0s)
+  l13: 12142 lines, longest 13 (0s)
+  l14: 30650 lines, longest 14 (0s)
+  l15: 54619 lines, longest 15 (0s)
+  l16: 86332 lines, longest 16 (0s)
+  l17: 165455 lines, longest 17 (0s)
+  l18: 305541 lines, longest 18 (1s)
+  l19: 406304 lines, longest 19 (1s)
+  l20: 311675 lines, longest 20 (1s)
+  l21: 113539 lines, longest 21 (1s)
+  l22: 14965 lines, longest 22 (1s)
+lines: 1508387, 0 bad, 0 longer than their file, 0 not a stage start; longest 22 (1s)
+side effects on 6x6x6: 0 move another centre off its colour; 1129500 change diagonal colours (allowed)
+side effects on 7x7x7: 0 move another centre off its colour; 1129500 change diagonal colours (allowed)
+side effects on 8x8x8: 0 move another centre off its colour; 1129500 change diagonal colours (allowed)
+side effects on 9x9x9: 0 move another centre off its colour; 1129500 change diagonal colours (allowed)
+side effects on 10x10x10: 0 move another centre off its colour; 1129500 change diagonal colours (allowed)
+classes: 1508387 distinct, 0 lines repeat a class (2s)
+coverage: 24010000 stage starts in 1508387 classes, 0 not covered; 1508387 classes listed (3s)
+  l00: 1 lines, longest 0
+  l04: 4 lines, longest 4
+  l05: 6 lines, longest 5
+  l06: 8 lines, longest 6
+  l07: 37 lines, longest 7
+  l08: 125 lines, longest 8
+  l09: 268 lines, longest 9
+  l10: 636 lines, longest 10
+  l11: 1611 lines, longest 11
+  l12: 4469 lines, longest 12
+  l13: 12142 lines, longest 13
+  l14: 30650 lines, longest 14
+  l15: 54619 lines, longest 15
+  l16: 86332 lines, longest 16
+  l17: 165455 lines, longest 17
+  l18: 305541 lines, longest 18
+  l19: 406304 lines, longest 19
+  l20: 311675 lines, longest 20
+  l21: 113539 lines, longest 21
+  l22: 14965 lines, longest 22
+PASS: every 4op stage start is solved in at most 22 moves (3s)

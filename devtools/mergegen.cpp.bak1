@@ -1,0 +1,383 @@
+// mergegen: oblique-pair algorithms for a centres-first solve, by merging projections.
+//
+// A word w over faces, depth-2 and depth-3 turns keeps every other oblique orbit colour-solved
+// iff both projections are pure on the 5x5x5 T-centres (proj1: w without its 3-turns; proj2: w
+// without its 2-turns, 3 renamed 2; see tcwalk).  So every such w is an interleaving of two pure
+// 5^3 words u (faces + 2-turns) and v (faces + 3-turns) with the same face turns in the same
+// order (the face skeleton).  mergegen
+//   1. enumerates W: every pure 5^3 word with at most --slices S slice turns and --faces F face
+//      turns, unreduced (2B 2B' is kept: a 3-turn may separate the two in a merge), grouped by
+//      face skeleton;
+//   2. merges every (u, v) pair of one skeleton (also u or v with no slice turns) into words of
+//      at most MAXLEN moves, rejecting on the fly two adjacent turns of one layer within a
+//      same-axis run (they would cancel or merge) and commuting runs out of their fixed order;
+//      cores only (no face turn in the first or last same-axis run);
+//   3. reports per length the merged words, distinct pair permutations and (with --check FILE,
+//      a tcwalk .cls) whether every tcwalk class up to MAXLEN is produced.
+//
+//   mergegen MAXLEN [--slices S] [--faces F] [--threads T] [--check FILE.cls]
+#include "classpool.h"
+#include <atomic>
+#include <chrono>
+#include <cstring>
+#include <map>
+#include <mutex>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
+
+typedef unsigned __int128 u128;
+static double now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+
+// 5^3: 36 letters, index (face*2 + depth-1)*3 + amt-1 (depth 1 = face, 2 = slice)
+static int t5[36][24];
+struct St { uint8_t c[24]; };
+static inline u128 key(const St &s) { u128 k = 0; for (int i = 0; i < 24; i++) k = k << 3 | s.c[i]; return k; }
+struct KH { size_t operator()(u128 k) const { uint64_t a = (uint64_t)k, b = (uint64_t)(k >> 64); return (a ^ (b * 0x9E3779B97F4A7C15ULL)) * 0xBF58476D1CE4E5B9ULL; } };
+static inline void ap(const St &s, int m, St &t) { for (int p = 0; p < 24; p++) t.c[t5[m][p]] = s.c[p]; }
+static int lFace(int l) { return l / 6; }
+static int lDepth(int l) { return l / 3 % 2 + 1; }
+static int lAmt(int l) { return l % 3 + 1; }
+
+// merged moves: index (face*3 + depth-1)*3 + amt-1, depth 1..3
+static int wIndex(int f, int d, int a) { return (f * 3 + d - 1) * 3 + a - 1; }
+static const int axisOf[6] = {0, 1, 2, 1, 2, 0}, firstSide[6] = {1, 1, 1, 0, 0, 0};
+static int wAxis[54], wOrd[54], wLayer[54], wDepth[54];
+static std::string wStr(int m) {
+  std::string t;
+  const int f = m / 9, d = m / 3 % 3 + 1, a = m % 3 + 1;
+  if (d > 1) t += char('0' + d);
+  t += "ULFRBD"[f];
+  t += a == 1 ? "" : a == 2 ? "2" : "'";
+  return t;
+}
+
+int main(int argc, char **argv) {
+  printf("#");
+  for (int i = 0; i < argc; i++) printf(" %s", argv[i]);
+  printf("\n");
+  int S = 6, F = 2, threads = std::max(1u, std::thread::hardware_concurrency()), R = 5;
+  std::string check;
+  std::vector<std::string> pos, wfrom;
+  bool wsym = false, wenum = false;
+  for (int i = 1; i < argc; i++) {
+    std::string o = argv[i];
+    if (o == "--slices" && i + 1 < argc) S = atoi(argv[++i]), wenum = true;
+    else if (o == "--faces" && i + 1 < argc) F = atoi(argv[++i]), wenum = true;
+    else if (o == "--threads" && i + 1 < argc) threads = atoi(argv[++i]);
+    else if (o == "--radius" && i + 1 < argc) R = atoi(argv[++i]);
+    else if (o == "--check" && i + 1 < argc) check = argv[++i];
+    else if (o == "--wfrom" && i + 1 < argc) wfrom.push_back(argv[++i]);
+    else if (o == "--wsym") wsym = true;
+    else if (o[0] == '-') { fprintf(stderr, "unknown option %s\n", o.c_str()); return 1; }
+    else pos.push_back(o);
+  }
+  if (pos.size() != 1) { fprintf(stderr, "usage: mergegen MAXLEN [--slices S] [--faces F] [--threads T] [--radius R] [--check FILE.cls] [--wfrom POOL.cls]... [--wsym]\n"); return 1; }
+  const int maxLen = atoi(pos[0].c_str());
+  const double t0 = now();
+  Cube c(5);
+  std::vector<int> tpos, tidx(c.pos.size(), -1);
+  for (size_t i = 0; i < c.pos.size(); i++) {
+    const int r = c.drow(i), k = c.dcol(i);
+    if ((r == 2 && k == 3) || (r == 3 && k == 2)) { tidx[i] = tpos.size(); tpos.push_back(i); }
+  }
+  for (int f = 0; f < 6; f++)
+    for (int d = 1; d <= 2; d++)
+      for (int a = 1; a <= 3; a++)
+        for (int p = 0; p < 24; p++) {
+          int s = tpos[p];
+          for (int q = 0; q < a; q++) s = c.movePerm[f][d - 1][s];
+          t5[(f * 2 + d - 1) * 3 + a - 1][p] = tidx[s];
+        }
+  St solved;
+  for (int p = 0; p < 24; p++) solved.c[p] = c.face[tpos[p]];
+  const u128 solvedKey = key(solved);
+  for (int f = 0; f < 6; f++)
+    for (int d = 1; d <= 3; d++)
+      for (int a = 1; a <= 3; a++) {
+        const int m = wIndex(f, d, a);
+        wAxis[m] = axisOf[f], wOrd[m] = firstSide[f] ? d - 1 : 5 - (d - 1), wLayer[m] = f * 3 + d - 1, wDepth[m] = d;
+      }
+  // pair-orbit permutations of the 54 merged moves (dst form: the piece at q goes to mp[m][q])
+  OrbitModel model = pairModel();
+  static uint8_t mp[54][48];
+  for (int m = 0; m < 54; m++) {
+    const auto &src = model.mv(m / 9, m / 3 % 3 + 1, m % 3 + 1);
+    for (int j = 0; j < 48; j++) mp[m][src[j]] = j;
+  }
+  // colourings within R letters of solved, for pruning the W enumeration
+  std::unordered_map<u128, uint8_t, KH> near;
+  {
+    std::vector<St> fr{solved};
+    near[solvedKey] = 0;
+    for (int d = 1; d <= R; d++) {
+      std::vector<St> nx;
+      for (auto &s : fr)
+        for (int m = 0; m < 36; m++) { St t; ap(s, m, t); if (near.emplace(key(t), d).second) nx.push_back(t); }
+      fr.swap(nx);
+    }
+    fprintf(stderr, "near table: %zu colourings within %d (%.1fs)\n", near.size(), R, now() - t0);
+  }
+  auto ndist = [&](const St &s) { auto it = near.find(key(s)); return it == near.end() ? R + 1 : (int)it->second; };
+  // 1. W: pure 5^3 words with 1..S slice letters and 0..F face letters, grouped by skeleton
+  //    (the face letters in order, as a string of letter codes)
+  std::map<std::string, std::vector<std::string>> W;  // skeleton -> words (letter codes)
+  long wCount = 0;
+  if (!wfrom.empty()) {
+    // W from a pool: both projections of every algorithm (face turns at the ends stripped first)
+    std::map<std::string, std::unordered_set<std::string>> ws;
+    long algsRead = 0;
+    char buf[8192];
+    for (auto &fn : wfrom) {
+      FILE *f = fopen(fn.c_str(), "r");
+      if (!f) { fprintf(stderr, "cannot open a --wfrom file\n"); return 1; }
+      while (fgets(buf, sizeof buf, f)) {
+        char *q;
+        strtol(buf, &q, 10);
+        if (q == buf) continue;
+        std::string t(q);
+        while (!t.empty() && (t.back() == '\n' || t.back() == ' ')) t.pop_back();
+        if (t.size() >= 3 && t.compare(t.size() - 3, 2, " D") == 0) t.resize(t.size() - 3);
+        auto mv = parse_alg(t);
+        std::vector<int> w;
+        for (auto &x : mv) w.push_back(wIndex(x.face, x.depth, x.amt));
+        // strip face turns from the first and last same-axis runs, repeatedly
+        for (bool ch = true; ch && !w.empty();) {
+          ch = false;
+          size_t j = 0;
+          while (j < w.size() && wAxis[w[j]] == wAxis[w[0]]) j++;
+          for (size_t k = 0; k < j && !ch; k++) if (wDepth[w[k]] == 1) { w.erase(w.begin() + k); ch = true; }
+          if (ch || w.empty()) continue;
+          size_t k0 = w.size();
+          while (k0 > 0 && wAxis[w[k0 - 1]] == wAxis[w.back()]) k0--;
+          for (size_t k = k0; k < w.size() && !ch; k++) if (wDepth[w[k]] == 1) { w.erase(w.begin() + k); ch = true; }
+        }
+        algsRead++;
+        for (int pr = 2; pr <= 3; pr++) {
+          std::string x, sk;
+          int ns = 0;
+          for (int m : w) {
+            const int f = m / 9, d = wDepth[m], a = m % 3 + 1;
+            if (d == 1) { const char l = (f * 2) * 3 + a - 1; x += l; sk += l; }
+            else if (d == pr) { x += (char)((f * 2 + 1) * 3 + a - 1); ns++; }
+          }
+          if (ns) ws[sk].insert(x);
+        }
+      }
+      fclose(f);
+    }
+    std::map<int, long> byLen;
+    for (auto &[sk, v] : ws) { for (auto &x : v) { W[sk].push_back(x); byLen[x.size()]++; wCount++; } }
+    fprintf(stderr, "W from %ld pool algorithms: %ld distinct projection words in %zu skeletons (%.1fs); by length:", algsRead, wCount, W.size(), now() - t0);
+    for (auto &kv : byLen) fprintf(stderr, " %d:%ld", kv.first, kv.second);
+    fprintf(stderr, "\n");
+  }
+  if (wenum || wfrom.empty()) {
+    std::string w;
+    std::vector<St> st(S + F + 1);
+    st[0] = solved;
+    std::function<void(int, int)> dfs = [&](int ns, int nf) {
+      const int len = w.size();
+      if (ns > 0 && key(st[len]) == solvedKey) {
+        std::string sk;
+        for (char x : w) if (lDepth(x) == 1) sk += x;
+        W[sk].push_back(w);
+        wCount++;
+      }
+      const int left = (S - ns) + (F - nf);
+      if (!left) return;
+      for (int m = 0; m < 36; m++) {
+        const bool face = lDepth(m) == 1;
+        if (face ? nf == F : ns == S) continue;
+        // within u itself, two adjacent face letters of one face would merge in every merge
+        if (len && face && lDepth(w.back()) == 1 && lFace(w.back()) == lFace(m)) continue;
+        ap(st[len], m, st[len + 1]);
+        if (ndist(st[len + 1]) > left - 1) continue;
+        w.push_back(m);
+        dfs(ns + !face, nf + face);
+        w.pop_back();
+      }
+    };
+    dfs(0, 0);
+    // a bare skeleton (faces only) is pure too: the side with no slice turns
+    std::map<int, long> byLen;
+    for (auto &[sk, v] : W) for (auto &x : v) byLen[x.size()]++;
+    fprintf(stderr, "W: %ld pure words in %zu skeletons (%.1fs); by length:", wCount, W.size(), now() - t0);
+    for (auto &kv : byLen) fprintf(stderr, " %d:%ld", kv.first, kv.second);
+    fprintf(stderr, "\n");
+  }
+  {
+    long n = 0;
+    for (auto &[sk, v] : W) { std::sort(v.begin(), v.end()); v.erase(std::unique(v.begin(), v.end()), v.end()); n += v.size(); }
+    fprintf(stderr, "W: %ld distinct words in %zu skeletons\n", n, W.size());
+  }
+  // the v side: W itself, or with --wsym every image of W under the 48 symmetries x inverse (u
+  // stays as given: merge(y u, z v) is the y-image of merge(u, y^-1 z v))
+  std::map<std::string, std::vector<std::string>> Wv;
+  if (wsym) {
+    int symFace[48][6], symDet[48];
+    const int perms[6][3] = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}, sign[6] = {1, -1, -1, 1, 1, -1};
+    int y = 0;
+    for (int pi = 0; pi < 6; pi++)
+      for (int sg = 0; sg < 8; sg++, y++) {
+        for (int f = 0; f < 6; f++) {
+          int v[3];
+          for (int r = 0; r < 3; r++) v[r] = NORMAL[f][perms[pi][r]] * ((sg >> r) & 1 ? -1 : 1);
+          symFace[y][f] = face_of_normal(v[0], v[1], v[2]);
+        }
+        symDet[y] = sign[pi] * (__builtin_popcount(sg) & 1 ? -1 : 1);
+      }
+    std::map<std::string, std::unordered_set<std::string>> ws;
+    for (auto &[sk, v] : W)
+      for (auto &x : v)
+        for (int inv = 0; inv < 2; inv++)
+          for (int yy = 0; yy < 48; yy++) {
+            std::string z, zs;
+            for (size_t i = 0; i < x.size(); i++) {
+              const int l = inv ? x[x.size() - 1 - i] : x[i];
+              int a = lAmt(l);
+              if (inv) a = 4 - a;
+              if (symDet[yy] < 0) a = 4 - a;
+              const char nl = (symFace[yy][lFace(l)] * 2 + lDepth(l) - 1) * 3 + a - 1;
+              z += nl;
+              if (lDepth(l) == 1) zs += nl;
+            }
+            ws[zs].insert(z);
+          }
+    long n = 0;
+    for (auto &[sk, v] : ws) { for (auto &x : v) Wv[sk].push_back(x); n += v.size(); }
+    fprintf(stderr, "W images (v side): %ld words in %zu skeletons (%.1fs)\n", n, Wv.size(), now() - t0);
+  } else Wv = W;
+  for (auto &[sk, v] : Wv) std::stable_sort(v.begin(), v.end(), [](const std::string &a, const std::string &b) { return a.size() < b.size(); });
+  // 2. merges, one task per (skeleton, u)
+  struct Task { const std::string *sk; const std::string *u; };
+  std::vector<Task> tasks;
+  std::vector<std::string> bare;  // keep the bare skeletons alive
+  bare.reserve(W.size());
+  for (auto &[sk, v] : W) for (auto &u : v) tasks.push_back({nullptr, &u});
+  for (auto &[sk, v] : Wv) bare.push_back(sk);
+  for (auto &sk : bare) tasks.push_back({&sk, &sk});  // u = bare skeleton (v carries all slices)
+  static std::string empty;
+  std::mutex mu;
+  std::vector<long> words(maxLen + 1, 0), nodesTot(1, 0);
+  struct H { size_t operator()(const std::array<uint8_t, 48> &v) const { size_t h = 1469598103934665603ULL; for (auto x : v) h = (h ^ x) * 1099511628211ULL; return h; } };
+  std::unordered_map<std::array<uint8_t, 48>, int, H> perms;  // pair permutation -> shortest length
+  std::atomic<size_t> nextTask{0};
+  auto work = [&] {
+    std::vector<long> myWords(maxLen + 1, 0);
+    std::unordered_map<std::array<uint8_t, 48>, int, H> mine;
+    long nd = 0;
+    int seq[64];
+    uint8_t P[64][48];
+    for (int q = 0; q < 48; q++) P[0][q] = q;
+    for (size_t ti; (ti = nextTask++) < tasks.size();) {
+      const std::string &u = *tasks[ti].u;
+      std::string skU;
+      if (!tasks[ti].sk) for (char x : u) if (lDepth(x) == 1) skU += x;
+      const std::string &sk = tasks[ti].sk ? *tasks[ti].sk : skU;
+      const bool uBare = tasks[ti].sk != nullptr;
+      auto wit = Wv.find(sk);
+      static const std::vector<std::string> none;
+      const auto &vs = wit == Wv.end() ? none : wit->second;
+      // v: every word of the skeleton, and the bare skeleton unless u is bare
+      const int nv = vs.size() + (uBare ? 0 : 1);
+      for (int vi = 0; vi < nv; vi++) {
+        const std::string &v = vi < (int)vs.size() ? vs[vi] : sk;
+        const int len = u.size() + v.size() - sk.size();
+        if (len > maxLen) { if (vi < (int)vs.size()) vi = vs.size() - 1; continue; }  // sorted by length
+        // interleave: i in u, j in v; faces only together
+        std::function<void(int, int, int, int)> dfs = [&](int i, int j, int n, int runStart) {
+          nd++;
+          if (i == (int)u.size() && j == (int)v.size()) {
+            // a core: no face turn in the last same-axis run
+            for (int k = runStart; k < n; k++) if (wDepth[seq[k]] == 1) return;
+            myWords[n]++;
+            std::array<uint8_t, 48> p;
+            memcpy(p.data(), P[n], 48);
+            bool id = true;
+            for (int q = 0; q < 48; q++) id &= p[q] == q;
+            if (id) return;
+            auto it = mine.find(p);
+            if (it == mine.end() || it->second > n) mine[p] = n;
+            return;
+          }
+          auto emit = [&](int m, int i2, int j2) {
+            int rs = runStart;
+            if (n > 0 && wAxis[m] == wAxis[seq[n - 1]]) {
+              if (wOrd[m] <= wOrd[seq[n - 1]]) return;  // out of order, or the same layer
+              // same layer earlier in the run (cannot happen with strictly increasing order)
+            } else rs = n;
+            if (wDepth[m] == 1 && rs == 0) return;  // a face turn in the first run
+            seq[n] = m;
+            for (int q = 0; q < 48; q++) P[n + 1][q] = mp[m][P[n][q]];
+            dfs(i2, j2, n + 1, rs);
+          };
+          const bool uf = i < (int)u.size() && lDepth(u[i]) == 1, vf = j < (int)v.size() && lDepth(v[j]) == 1;
+          if (i < (int)u.size() && !uf) emit(wIndex(lFace(u[i]), 2, lAmt(u[i])), i + 1, j);
+          if (j < (int)v.size() && !vf) emit(wIndex(lFace(v[j]), 3, lAmt(v[j])), i, j + 1);
+          if (uf && vf) emit(wIndex(lFace(u[i]), 1, lAmt(u[i])), i + 1, j + 1);
+        };
+        dfs(0, 0, 0, 0);
+      }
+    }
+    std::lock_guard<std::mutex> g(mu);
+    for (int d = 0; d <= maxLen; d++) words[d] += myWords[d];
+    nodesTot[0] += nd;
+    for (auto &[p, n] : mine) { auto it = perms.find(p); if (it == perms.end() || it->second > n) perms[p] = n; }
+  };
+  std::vector<std::thread> th;
+  for (int t = 0; t < threads; t++) th.emplace_back(work);
+  for (auto &t : th) t.join();
+  const double el = now() - t0;
+  long tw = 0;
+  for (auto x : words) tw += x;
+  printf("merged words (cores) by length:");
+  for (int d = 0; d <= maxLen; d++) if (words[d]) printf(" %d:%ld", d, words[d]);
+  printf("\n%ld words, %ld merge nodes, %.1fs (%.3g words/s)\n", tw, nodesTot[0], el, tw / el);
+  std::map<int, long> pl;
+  for (auto &[p, n] : perms) pl[n]++;
+  printf("distinct pair permutations by shortest length:");
+  for (auto &kv : pl) printf(" %d:%ld", kv.first, kv.second);
+  printf(" (%zu)\n", perms.size());
+  if (!check.empty()) {
+    // every tcwalk class up to maxLen: is some image of it among the permutations?
+    std::unordered_map<std::string, int> classes;
+    for (auto &[p, n] : perms) {
+      std::string k(48, 0);
+      model.classKey(p.data(), (uint8_t *)k.data());
+      auto it = classes.find(k);
+      if (it == classes.end() || it->second > n) classes[k] = n;
+    }
+    FILE *f = fopen(check.c_str(), "r");
+    if (!f) { fprintf(stderr, "cannot open the check file\n"); return 1; }
+    char buf[8192];
+    std::map<int, long> have, miss, longer;
+    int shown = 0;
+    while (fgets(buf, sizeof buf, f)) {
+      char *q;
+      const int len = strtol(buf, &q, 10);
+      if (q == buf || len > maxLen) continue;
+      std::string t(q);
+      while (!t.empty() && (t.back() == '\n' || t.back() == ' ')) t.pop_back();
+      if (t.size() >= 3 && t.compare(t.size() - 3, 2, " D") == 0) t.resize(t.size() - 3);
+      auto p = model.permOf(parse_alg(t));
+      std::string k(48, 0);
+      model.classKey(p.data(), (uint8_t *)k.data());
+      auto it = classes.find(k);
+      if (it == classes.end()) {
+        miss[len]++;
+        if (shown++ < 10) printf("  not produced: %d %s\n", len, t.c_str());
+      } else if (it->second > len) { longer[len]++; if (shown++ < 10) printf("  only longer (%d): %d %s\n", it->second, len, t.c_str()); }
+      else have[len]++;
+    }
+    fclose(f);
+    printf("check: tcwalk classes produced:");
+    for (auto &kv : have) printf(" %d:%ld", kv.first, kv.second);
+    printf("; only longer:");
+    for (auto &kv : longer) printf(" %d:%ld", kv.first, kv.second);
+    printf("; missing:");
+    for (auto &kv : miss) printf(" %d:%ld", kv.first, kv.second);
+    printf("\n");
+  }
+  (void)wStr;
+}

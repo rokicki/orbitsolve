@@ -1,0 +1,24 @@
+# load: load averages: 2.55 2.90 5.83
+# ./certsolve 100 --timing --seed 100 --bound --ud 33 --ax 45
+# seed 100
+# N=100: 1176 oblique pairs; mode boundary choice
+# bounds: 1ud + 2ud <= 33, 3ax + 4op <= 45; actions of at most 10 moves, slack 6, deep 6 (second action at most 8)
+# per orbit: oblique pair 78, mid 0, diagonal 44, wing 162; corners 11; 0 mid, 49 diagonal, 49 wing orbits; whole-cube bound 101833
+cube 1 solved: obliques 76723 + mids 0 + diagonals 1762 + corners 8 + wings 5959 = 84452 moves (bound 101833)
+# timing oblique tables (load/rebuild)           1.522 s     18.632 G instr      5.721 G cycles  IPC  3.26
+# timing boundary actions (build)               18.936 s    221.552 G instr     71.251 G cycles  IPC  3.11
+# timing mid/diagonal/wing/corner tables         0.425 s     29.640 G instr      9.950 G cycles  IPC  2.98
+# timing phase 1 (1ud + 2ud), all pairs         33.753 s    412.149 G instr    122.668 G cycles  IPC  3.36
+# timing   1ud + 2ud, not searched: 1164 pairs; per pair mean 0.017 ms, 0.20 M instr, 0.06 M cycles; cycles median 0.06 M, 90% 0.08 M, 99% 0.11 M, max 0.74 M
+# timing   1ud + 2ud, searched: 12 pairs; per pair mean 2811.073 ms, 34326.45 M instr, 10216.38 M cycles; cycles median 9586.67 M, 90% 12619.63 M, 99% 15929.52 M, max 15929.52 M
+# timing phase 2 (3ax + 4op), all pairs          0.015 s      0.254 G instr      0.055 G cycles  IPC  4.64
+# timing   3ax + 4op, not searched: 1176 pairs; per pair mean 0.013 ms, 0.22 M instr, 0.05 M cycles; cycles median 0.05 M, 90% 0.06 M, 99% 0.07 M, max 0.20 M
+# timing   3ax + 4op, searched: 0 pairs
+# timing rest of the cube (solve)                0.033 s      0.168 G instr      0.118 G cycles  IPC  1.42
+# timing total                                  54.686 s    682.415 G instr    209.771 G cycles  IPC  3.25
+pairs solved 1176, worst 73, mean 65.24
+totals: 53:1 54:1 55:5 56:6 57:6 58:15 59:27 60:35 61:60 62:76 63:91 64:136 65:134 66:151 67:143 68:100 69:83 70:48 71:36 72:15 73:7
+pairs searched (table lines over the budget): 1ud + 2ud 12, 3ax + 4op 0, of 1176
+cubes solved 1, most moves 84452, bound 101833
+over a bound: 0 (55s)
+# exit 0

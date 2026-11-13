@@ -1,0 +1,781 @@
+Only in /Users/rokicki/fast/proto: NOTES.md
+Only in /Users/rokicki/fast/proto: actiontest
+Only in /Users/rokicki/fast/proto: actiontest.cpp
+diff -ru /Users/rokicki/fast/proto/coset.h src/coset.h
+--- /Users/rokicki/fast/proto/coset.h	2026-11-05 10:49:10
++++ src/coset.h	2026-11-11 09:52:08
+@@ -6,6 +6,7 @@
+ // symmetry reduction can be compressed.
+ #pragma once
+ #include "symm.h"
++#include <cmath>
+ #include <numeric>
+ 
+ // Regauge: X' = G^-1 X G with G = (identity, g)
+Only in /Users/rokicki/fast/proto: cosetscan
+Only in /Users/rokicki/fast/proto: cosetscan.cpp
+Only in /Users/rokicki/fast/proto: cosettest
+Only in /Users/rokicki/fast/proto: cosettest.cpp
+diff -ru /Users/rokicki/fast/proto/fastidx.h src/fastidx.h
+--- /Users/rokicki/fast/proto/fastidx.h	2026-11-05 11:00:56
++++ src/fastidx.h	2026-11-11 13:11:31
+@@ -37,6 +37,9 @@
+ bool FastTabs::done = false;
+ 
+ static inline uint32_t movemask16(uint8x16_t eq) {
++#if !defined(__aarch64__)
++  return (uint32_t)_mm_movemask_epi8(M_(eq));
++#endif
+   static const uint8_t bw[16] = {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
+   uint8x16_t v = vandq_u8(eq, vld1q_u8(bw));
+   return vaddv_u8(vget_low_u8(v)) | (vaddv_u8(vget_high_u8(v)) << 8);
+@@ -73,6 +76,9 @@
+ using Shape2 = GenericShape;
+ #endif
+ template <int N> static inline uint32_t movemaskN(uint8x16_t eq) {
++#if !defined(__aarch64__)
++  return (uint32_t)_mm_movemask_epi8(M_(eq)) & (N > 0 && N <= 8 ? 0xFF : 0xFFFF);
++#endif
+   static const uint8_t bw[16] = {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
+   uint8x16_t v = vandq_u8(eq, vld1q_u8(bw));
+   if (N > 0 && N <= 8) return vaddv_u8(vget_low_u8(v));
+diff -ru /Users/rokicki/fast/proto/fulltab.h src/fulltab.h
+--- /Users/rokicki/fast/proto/fulltab.h	2026-11-05 13:02:23
++++ src/fulltab.h	2026-11-11 13:26:05
+@@ -27,15 +27,20 @@
+ #include <mutex>
+ #include <array>
+ #include <sys/mman.h>
++#include <fcntl.h>
++#ifndef MAP_POPULATE
++#define MAP_POPULATE 0
++#endif
++#include <unistd.h>
+ #include <chrono>
+ #include <cmath>
+ #include <memory>
+ 
+ template <int NCH> static inline uint64_t aesHash(const St<NCH> &a) {
+   uint8x16_t h = veorq_u8(a.c[0], vdupq_n_u8(0x3c));
+-  for (int i = 1; i < NCH; i++) h = vaesmcq_u8(vaeseq_u8(h, a.c[i]));
+-  h = vaesmcq_u8(vaeseq_u8(h, vdupq_n_u8(0xa5)));
+-  h = vaesmcq_u8(vaeseq_u8(h, vdupq_n_u8(0x96)));
++  for (int i = 1; i < NCH; i++) h = aesMix(h, a.c[i]);
++  h = aesMix(h, vdupq_n_u8(0xa5));
++  h = aesMix(h, vdupq_n_u8(0x96));
+   uint64x2_t v = vreinterpretq_u64_u8(h);
+   return vgetq_lane_u64(v, 0) ^ (vgetq_lane_u64(v, 1) * 0x9E3779B97F4A7C15ULL);
+ }
+@@ -59,15 +64,24 @@
+   }
+   inline St<NCH> of(const St<NCH> &x) const {
+     St<NCH> r; const uint8x16_t PM = vdupq_n_u8(L.posmask), OM = vdupq_n_u8(L.orimask);
+-    for (int i = 0; i < NCH; i++) r.c[i] = vorrq_u8(tblK<(NCH > 4 ? 8 : 4)>(colorTab, vandq_u8(x.c[i], PM)), vandq_u8(x.c[i], OM));
++    for (int i = 0; i < NCH; i++) r.c[i] = vorrq_u8(tblK<(NCH > 8 ? 9 : NCH > 4 ? 8 : 4)>(colorTab, vandq_u8(x.c[i], PM)), vandq_u8(x.c[i], OM));
+     return r;
+   }
+ };
+ 
+ template <int NCH> struct Canon {
+   const ColorSpace<NCH> &C; const Layout &L; const Puzzle &pz;
+-  struct Sy { St<NCH> g; alignas(16) uint8_t sig[64]; bool sigId; };
++  struct Sy { St<NCH> g; alignas(16) uint8_t sig[64]; bool sigId; GPlan gp; };
+   vector<Sy> sy;
++  int sigCh = 4;   // 16-byte chunks of sig in use (colour codes < C.ncol)
++  inline uint8x16_t sigMap(const Sy &S, uint8x16_t y) const {
++#if defined(__aarch64__)
++    uint8x16x4_t T = {vld1q_u8(S.sig), vld1q_u8(S.sig + 16), vld1q_u8(S.sig + 32), vld1q_u8(S.sig + 48)};
++    return vqtbl4q_u8(T, y);
++#else
++    return U_(tblX((const __m128i *)S.sig, sigCh, M_(y)));
++#endif
++  }
+   // feature stage
+   bool feat = false; int fn = 0, fk = 0;
+   vector<int> omega;              // colour codes (Omega)
+@@ -77,6 +91,7 @@
+   vector<uint32_t> setStart; vector<uint8_t> setFlat;   // flattened sets: [setStart[i], setStart[i+1])
+   uint32_t nr = 0; int nbytes = 0;
+   int pc0 = NCH > 1 ? 1 : 0, pc1 = NCH > 2 ? 2 : 0;   // partial-key chunks
++  int pcx = NCH > 1 ? 1 : 0;   // x86 partial key: this one chunk (env PCX overrides)
+   mutable long long dbgFull = 0, dbgCalls = 0;
+   // batched movemasks: (chunk, code) pairs, groups of 8 through a pairwise-add tree
+   vector<int> mmChunk, mmCode; vector<array<int, 3>> wMM;   // per omega element: indices into the pair list (-1 none)
+@@ -92,7 +107,7 @@
+       Elem Si = pz.inv(S);
+       Sy s; uint8_t g[KMAX];
+       for (int j = 0; j < KMAX; j++) g[j] = j < pz.N ? S.p[j] : j;
+-      s.g = load<NCH>(g);
++      s.g = load<NCH>(g); s.gp.make(g);
+       // sigma: colour(Si.p[q]) = sigma(colour(q))
+       vector<int> sg(64, -1); bool ok = true;
+       for (int q = 0; q < pz.N; q++) {
+@@ -104,8 +119,10 @@
+       for (int a = 0; a < 64; a++) { s.sig[a] = sg[a] < 0 ? a : sg[a]; if (s.sig[a] != a) s.sigId = false; }
+       sy.push_back(s); kept.push_back(S);
+     }
+-    if (sy.empty()) { Sy s; uint8_t g[KMAX]; for (int j = 0; j < KMAX; j++) g[j] = j; s.g = load<NCH>(g); s.sigId = true; for (int a = 0; a < 64; a++) s.sig[a] = a; sy.push_back(s); }
++    if (sy.empty()) { Sy s; uint8_t g[KMAX]; for (int j = 0; j < KMAX; j++) g[j] = j; s.g = load<NCH>(g); s.gp.make(g); s.sigId = true; for (int a = 0; a < 64; a++) s.sig[a] = a; sy.push_back(s); }
+     if (sy.size() > 255) sy.resize(255);
++    sigCh = max(1, (C.ncol + 15) / 16);
++    if (getenv("PCX")) pcx = min(NCH - 1, atoi(getenv("PCX")));
+     // verify against kernel conjugation on random permutation states
+     {
+       vector<KElem> km; for (auto &m : pz.moves) km.push_back(L.prep(pz, m.e));
+@@ -125,11 +142,8 @@
+   }
+   inline St<NCH> apply(const St<NCH> &c, int s) const {
+     const Sy &S = sy[s]; St<NCH> y;
+-    for (int i = 0; i < NCH; i++) y.c[i] = tblN<NCH>(c, S.g.c[i]);
+-    if (!S.sigId) {
+-      uint8x16x4_t T = {vld1q_u8(S.sig), vld1q_u8(S.sig + 16), vld1q_u8(S.sig + 32), vld1q_u8(S.sig + 48)};
+-      for (int i = 0; i < NCH; i++) y.c[i] = vqtbl4q_u8(T, y.c[i]);
+-    }
++    for (int i = 0; i < NCH; i++) y.c[i] = gatherP<NCH>(c, S.gp, (const uint8_t *)S.g.c, i);
++    if (!S.sigId) for (int i = 0; i < NCH; i++) y.c[i] = sigMap(S, y.c[i]);
+     return y;
+   }
+   inline uint32_t colex(uint32_t m) const {
+@@ -144,6 +158,20 @@
+   // all feature masks at once
+   alignas(16) uint8_t mmCodeV[32][16];
+   inline void masks(const St<NCH> &c, uint32_t *out) const {
++#if !defined(__aarch64__)
++    { // x86: one PMOVMSKB per (chunk, code) pair instead of the emulated pairwise-add tree
++      alignas(16) uint16_t mk[32];
++      const int np = mmChunk.size(); const int *ch = mmChunk.data();
++      for (int g = 0; g < np; g++) mk[g] = (uint16_t)_mm_movemask_epi8(_mm_cmpeq_epi8(M_(c.c[ch[g]]), _mm_load_si128((const __m128i *)mmCodeV[g])));
++      const size_t nw = omega.size();
++      for (size_t w = 0; w < nw; w++) {
++        const auto &ix = wMM[w];
++        uint64_t acc = mk[ix[0]] | (uint64_t)mk[ix[1]] << 16 | (uint64_t)mk[ix[2]] << 32;
++        out[w] = (uint32_t)((acc >> wShift[w]) & fullMask);
++      }
++      return;
++    }
++#endif
+     static const uint8_t bw[16] = {1, 2, 4, 8, 16, 32, 64, 128, 1, 2, 4, 8, 16, 32, 64, 128};
+     const uint8x16_t W = vld1q_u8(bw);
+     alignas(16) uint8_t buf[16 * NCH]; store<NCH>(c, buf);
+@@ -169,15 +197,15 @@
+   inline uint64_t symHash(const St<NCH> &c, int s) const {
+     const Sy &S = sy[s];
+     auto gat = [&](int i) {
+-      uint8x16_t y = tblN<NCH>(c, S.g.c[i]);
+-      if (!S.sigId) { uint8x16x4_t T = {vld1q_u8(S.sig), vld1q_u8(S.sig + 16), vld1q_u8(S.sig + 32), vld1q_u8(S.sig + 48)}; y = vqtbl4q_u8(T, y); }
++      uint8x16_t y = gatherP<NCH>(c, S.gp, (const uint8_t *)S.g.c, i);
++      if (!S.sigId) y = sigMap(S, y);
+       return y;
+     };
+     uint8x16_t h = veorq_u8(gat(0), vdupq_n_u8(0x3c));
+ #pragma clang loop unroll(full)
+-    for (int i = 1; i < NCH; i++) h = vaesmcq_u8(vaeseq_u8(h, gat(i)));
+-    h = vaesmcq_u8(vaeseq_u8(h, vdupq_n_u8(0xa5)));
+-    h = vaesmcq_u8(vaeseq_u8(h, vdupq_n_u8(0x96)));
++    for (int i = 1; i < NCH; i++) h = aesMix(h, gat(i));
++    h = aesMix(h, vdupq_n_u8(0xa5));
++    h = aesMix(h, vdupq_n_u8(0x96));
+     uint64x2_t v = vreinterpretq_u64_u8(h);
+     return vgetq_lane_u64(v, 0) ^ (vgetq_lane_u64(v, 1) * 0x9E3779B97F4A7C15ULL);
+   }
+@@ -292,12 +320,37 @@
+     }
+     return n;
+   }
+-  // canonical hash (and optionally the canonical form: minimum (hash, bytes))
+-  template <bool FORM> inline uint64_t canon(const St<NCH> &c, St<NCH> *form = nullptr) const {
+-    // candidates: feature stage (or all symmetries)
++  // canonicalization statistics for one state: o[0] += feature candidates, o[1] += left after the
++  // partial stage, o[2] += distinct images among those (equal images = stabilizer)
++  void stat(const St<NCH> &c, long long *o) const {
+     int cand[1024], nc = 0;
+     if (!feat) { for (size_t s = 0; s < sy.size(); s++) cand[nc++] = s; }
+     else {
++      uint32_t mn = ~0u; int ids[64], ni = 0; uint32_t mk[64]; masks(c, mk);
++      for (size_t w = 0; w < omega.size(); w++) { size_t e = (size_t)w * nr + colex(mk[w]); uint32_t v = minR[e]; if (v < mn) { mn = v; ni = 0; } if (v == mn) ids[ni++] = setOf[e]; }
++      for (int i = 0; i < ni; i++) for (uint32_t j = setStart[ids[i]]; j < setStart[ids[i] + 1]; j++) cand[nc++] = setFlat[j];
++    }
++    o[0] += nc;
++    uint64_t ph[1024], pl[1024], pm = ~0ULL, ml = ~0ULL; int keep = 0;
++    for (int i = 0; i < nc; i++) {   // the x86 partial key (one chunk, raw)
++      const Sy &S = sy[cand[i]];
++      uint8x16_t a = gatherP<NCH>(c, S.gp, (const uint8_t *)S.g.c, pcx);
++      if (!S.sigId) a = sigMap(S, a);
++      uint64_t w[2]; memcpy(w, &a, 16); ph[i] = w[1]; pl[i] = w[0];
++      if (w[1] < pm || (w[1] == pm && w[0] < ml)) { pm = w[1]; ml = w[0]; }
++    }
++    for (int i = 0; i < nc; i++) if (ph[i] == pm && pl[i] == ml) cand[keep++] = cand[i];
++    o[1] += keep;
++    vector<St<NCH>> im;
++    for (int i = 0; i < keep; i++) { St<NCH> y = apply(c, cand[i]); bool dup = false; for (auto &u : im) if (eqSt<NCH>(u, y)) dup = true; if (!dup) im.push_back(y); }
++    o[2] += im.size();
++  }
++  // canonical hash (and optionally the canonical form: minimum (hash, bytes))
++  // feature stage: candidate symmetries (or all)
++  inline int features(const St<NCH> &c, int *cand) const {
++    int nc = 0;
++    if (!feat) { for (size_t s = 0; s < sy.size(); s++) cand[nc++] = s; }
++    else {
+       uint32_t mn = ~0u; int ids[64], ni = 0; uint32_t mk[64];
+       masks(c, mk);
+       for (size_t w = 0; w < omega.size(); w++) {
+@@ -308,18 +361,37 @@
+       }
+       for (int i = 0; i < ni; i++) for (uint32_t j = setStart[ids[i]]; j < setStart[ids[i] + 1]; j++) cand[nc++] = setFlat[j];
+     }
++    return nc;
++  }
++  template <bool FORM> inline uint64_t canon(const St<NCH> &c, St<NCH> *form = nullptr) const {
++    int cand[1024], nc = features(c, cand);
+     // partial stage: two gathered chunks, one AES round
+     if (nc > 1) {
+       uint64_t pm = ~0ULL; int keep = 0; uint64_t ph[1024];
++#if defined(__aarch64__)
+       for (int i = 0; i < nc; i++) {
+         const Sy &S = sy[cand[i]];
+-        uint8x16_t a = tblN<NCH>(c, S.g.c[pc0]), b = tblN<NCH>(c, S.g.c[pc1]);
+-        if (!S.sigId) { uint8x16x4_t T = {vld1q_u8(S.sig), vld1q_u8(S.sig + 16), vld1q_u8(S.sig + 32), vld1q_u8(S.sig + 48)}; a = vqtbl4q_u8(T, a); b = vqtbl4q_u8(T, b); }
+-        uint64x2_t v = vreinterpretq_u64_u8(vaesmcq_u8(vaeseq_u8(a, b)));
++        uint8x16_t a = gatherP<NCH>(c, S.gp, (const uint8_t *)S.g.c, pc0), b = gatherP<NCH>(c, S.gp, (const uint8_t *)S.g.c, pc1);
++        if (!S.sigId) { a = sigMap(S, a); b = sigMap(S, b); }
++        uint64x2_t v = vreinterpretq_u64_u8(aesMix(a, b));
+         ph[i] = vgetq_lane_u64(v, 0) ^ vgetq_lane_u64(v, 1);
+         if (ph[i] < pm) pm = ph[i];
+       }
+       for (int i = 0; i < nc; i++) if (ph[i] == pm) cand[keep++] = cand[i];
++#else
++      // x86 (2026-11-11): one gathered chunk as a raw 128-bit key, no AES (the canonical choice may differ
++      // from the ARM build; tables are per binary)
++      uint64_t pl[1024], ml = ~0ULL;
++      for (int i = 0; i < nc; i++) {
++        const Sy &S = sy[cand[i]];
++        uint8x16_t a = gatherP<NCH>(c, S.gp, (const uint8_t *)S.g.c, pcx);
++        if (!S.sigId) a = sigMap(S, a);
++        __m128i x = M_(a); uint64_t hi = (uint64_t)_mm_extract_epi64(x, 1), lo = (uint64_t)_mm_cvtsi128_si64(x);
++        ph[i] = hi; pl[i] = lo;
++        if (hi < pm || (hi == pm && lo < ml)) { pm = hi; ml = lo; }
++      }
++      for (int i = 0; i < nc; i++) if (ph[i] == pm && pl[i] == ml) cand[keep++] = cand[i];
++#endif
+       nc = keep;
+ #ifdef CANON_DEBUG
+       dbgFull += nc; dbgCalls++;
+@@ -369,7 +441,7 @@
+   // buffer is flushed under the shard's lock with plain writes and prefetch-ahead.
+   // Shards are small (~16 MB) so a flush stays within a TLB-sized region.
+   int shShift = 0, nShard = 0; static constexpr int QN = 256;
+-  struct Q { vector<uint64_t> buf; vector<uint16_t> cnt; long long news = 0; };
++  struct alignas(64) Q { vector<uint64_t> buf; vector<uint16_t> cnt; long long news = 0; };  // own cache lines (false sharing)
+   vector<Q> qs; unique_ptr<atomic<bool>[]> locks;
+   void qInit(int nth) {
+     shShift = 26; while (((M - 1) >> shShift) >= 4096) shShift++;   // 64M slots = 16 MB per shard
+@@ -416,6 +488,15 @@
+       if ((ex[i] >> 4) == (k >> 4)) return;
+     }
+   }
++  // same, safe from many threads at once (compare-and-swap on the empty slot)
++  inline void exInsertPar(uint64_t h, int d) {
++    uint64_t k = (((h >> 4) | (1ULL << 59)) << 4) | (uint64_t)d;
++    for (uint64_t i = (h * 0x9E3779B97F4A7C15ULL) >> 20 & exMask;; i = (i + 1) & exMask) {
++      uint64_t v = __atomic_load_n(&ex[i], __ATOMIC_RELAXED);
++      if (v == 0) { if (__atomic_compare_exchange_n(&ex[i], &v, k, false, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) return; }
++      if ((v >> 4) == (k >> 4)) return;
++    }
++  }
+   // exact distance if the state is within E (by canonical hash), else -1
+   inline int exact(uint64_t h) const {
+     uint64_t key = (h >> 4) | (1ULL << 59);
+@@ -458,7 +539,13 @@
+ 
+   void alloc(double gb) {
+     bytes = (uint64_t)(gb * 1e9); bytes &= ~(uint64_t)16383; M = bytes * 4;
+-    tab = (uint8_t *)mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
++    string p = shmPath();
++    if (!p.empty()) {   // FTSHM: build straight into the shared file (no second copy)
++      unlink((p + ".meta").c_str());
++      int fd = open(p.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0644);
++      if (fd < 0 || ftruncate(fd, bytes) != 0) { perror(p.c_str()); exit(1); }
++      tab = (uint8_t *)mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0); close(fd);
++    } else tab = (uint8_t *)mmap(nullptr, bytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+     if (tab == MAP_FAILED) { perror("mmap"); exit(1); }
+   }
+   template <class F> static void parFor(int nth, size_t n, F &&f) {
+@@ -466,12 +553,57 @@
+     for (int t = 0; t < nth; t++) th.emplace_back([&, t] { while (true) { size_t i = next++; if (i >= n) break; f(t, i); } });
+     for (auto &x : th) x.join();
+   }
++  // FTSHM=path (2026-11-11): keep the table in a file (on Linux /dev/shm: RAM, survives the process).
++  // The build writes path (table, MAP_SHARED), path.ex (exact set) and last path.meta; a later run
++  // with the same tws, size and layer budget maps the table and reads the exact set instead of building.
++  string fp;              // tws fingerprint (set by the caller)
++  string shmPath() const { const char *s = getenv("FTSHM"); return s ? s : ""; }
++  string metaWant(double gb, double layerGB) const {
++    char b[256]; snprintf(b, sizeof b, "fp %s bytes %llu layergb %.3f\n", fp.c_str(), (unsigned long long)((uint64_t)(gb * 1e9) & ~(uint64_t)16383), layerGB);
++    return b;
++  }
++  bool shmLoad(double gb, double layerGB, bool verbose) {
++    string p = shmPath(); if (p.empty()) return false;
++    FILE *f = fopen((p + ".meta").c_str(), "r"); if (!f) return false;
++    char line[256] = {0}, line2[256] = {0};
++    bool ok = fgets(line, sizeof line, f) && fgets(line2, sizeof line2, f); fclose(f);
++    if (!ok || metaWant(gb, layerGB) != line) { if (verbose) printf("fulltab: %s.meta does not match; rebuilding\n", p.c_str()); return false; }
++    unsigned long long exn = 0;
++    if (sscanf(line2, "E %d D %d exsize %llu", &E, &D, &exn) != 3) return false;
++    double t = nowSec();
++    bytes = (uint64_t)(gb * 1e9) & ~(uint64_t)16383; M = bytes * 4;
++    int fd = open(p.c_str(), O_RDONLY); if (fd < 0) { perror(p.c_str()); exit(1); }
++    tab = (uint8_t *)mmap(nullptr, bytes, PROT_READ, MAP_SHARED | MAP_POPULATE, fd, 0); close(fd);
++    if (tab == MAP_FAILED) { perror("mmap"); exit(1); }
++    ex.assign(exn, 0); exMask = exn - 1;
++    FILE *g = fopen((p + ".ex").c_str(), "rb");
++    if (!g || fread(ex.data(), 8, exn, g) != exn) { fprintf(stderr, "fulltab: %s.ex unreadable\n", p.c_str()); exit(1); }
++    fclose(g);
++    if (verbose) printf("fulltab: mapped %s (%.1f GB, exact to %d, D=%d) in %.1fs\n", p.c_str(), bytes / 1e9, E, D, nowSec() - t);
++    return true;
++  }
++  void shmSave(double gb, double layerGB, bool verbose) {
++    string p = shmPath(); if (p.empty()) return;
++    double t = nowSec();
++    msync(tab, bytes, MS_SYNC);
++    FILE *g = fopen((p + ".ex").c_str(), "wb");
++    if (!g || fwrite(ex.data(), 8, ex.size(), g) != ex.size() || fclose(g)) { perror((p + ".ex").c_str()); exit(1); }
++    FILE *f = fopen((p + ".meta.tmp").c_str(), "w");
++    fprintf(f, "%sE %d D %d exsize %llu\n", metaWant(gb, layerGB).c_str(), E, D, (unsigned long long)ex.size()); fclose(f);
++    rename((p + ".meta.tmp").c_str(), (p + ".meta").c_str());
++    if (verbose) printf("fulltab: saved to %s (+ .ex, .meta) in %.1fs\n", p.c_str(), nowSec() - t);
++  }
+   void build(double gb, double layerGB, int nth, bool verbose) {
++    if (shmLoad(gb, layerGB, verbose)) return;
+     if (totalBits <= 64) build<1>(gb, layerGB, nth, verbose);
+     else if (totalBits <= 128) build<2>(gb, layerGB, nth, verbose);
+     else if (totalBits <= 192) build<3>(gb, layerGB, nth, verbose);
+     else if (totalBits <= 256) build<4>(gb, layerGB, nth, verbose);
++    else if (totalBits <= 320) build<5>(gb, layerGB, nth, verbose);
++    else if (totalBits <= 384) build<6>(gb, layerGB, nth, verbose);
++    else if (totalBits <= 448) build<7>(gb, layerGB, nth, verbose);
+     else { fprintf(stderr, "fulltab: state too large to pack (%d bits)\n", totalBits); exit(1); }
++    shmSave(gb, layerGB, verbose);
+   }
+   template <int W> void build(double gb, double layerGB, int nth, bool verbose) {
+     alloc(gb);
+@@ -536,19 +668,43 @@
+     for (int d = 0; d <= E; d++) nEx += lsz[d];
+     { uint64_t sz = 1; while (sz < nEx * 2) sz <<= 1; ex.assign(sz, 0); exMask = sz - 1; }
+     qInit(nth);
++    // in parallel (2026-11-11: serially this took ~5 min for 83M states on arena); one layer at a time,
++    // so on a 60-bit key collision the smaller distance still wins, as in the serial order
++    double tx = nowSec();
+     for (int d = 0; d <= E; d++)
+-      for (auto &bk : lay[d]) for (auto &k : bk) { St<NCH> c = unpack<W>(k); uint64_t h = aesHash<NCH>(c); qPush(0, slot(h), 0); exInsert(h, d); }
++      parFor(nth, NB, [&](int t, size_t b) {
++        for (auto &k : lay[d][b]) { St<NCH> c = unpack<W>(k); uint64_t h = aesHash<NCH>(c); qPush(t, slot(h), 0); exInsertPar(h, d); }
++      });
+     setE = qDrain(nth, 0);
+-    if (verbose) printf("fulltab: exact set %zu states, %.2f GB\n", nEx, ex.size() * 8 / 1e9);
++    if (verbose) printf("fulltab: exact set %zu states, %.2f GB (%.1fs)\n", nEx, ex.size() * 8 / 1e9, nowSec() - tx), fflush(stdout);
+     // DFS levels from layer E
+     D = E;
+-    vector<long long> leaves(nth), news(nth);
++    // per-worker fill statistics, one cache line each (never a packed vector<long long>(nth): false sharing)
++    struct alignas(64) FillStat { long long leaves = 0, news = 0, cs[4] = {0, 0, 0, 0}; };
++    vector<FillStat> fs(nth);
+     for (int lev = 1; lev <= 2; lev++) {
+       double est = (double)lsz[E] * pow((double)km.size() * 0.8, lev);
+-      if (lev == 2 && est > 4e11) break;
+-      fill(leaves.begin(), leaves.end(), 0); fill(news.begin(), news.end(), 0);
++      if (lev == 2 && est > (getenv("MAXEST") ? atof(getenv("MAXEST")) : 4e11)) break;   // MAXEST: leaf cap for the last level
++      if (verbose) printf("  depth %d: about %.3g leaves expected\n", E + lev, est), fflush(stdout);
++      for (auto &f : fs) f = FillStat{};
+       PerfSnap ps = perfNow();
++      // progress (2026-11-11): a status line every PROGSEC seconds (default 120) while the level fills
++      atomic<size_t> doneB{0}; atomic<bool> fin{false};
++      thread prog([&] {
++        const double every = getenv("PROGSEC") ? atof(getenv("PROGSEC")) : 120, ts = nowSec();
++        double next = ts + every;
++        while (!fin) {
++          this_thread::sleep_for(chrono::milliseconds(200));
++          if (fin || nowSec() < next) continue;
++          next += every;
++          long long lf = 0; for (int t = 0; t < nth; t++) lf += fs[t].leaves;
++          const double fr = (double)doneB / NB, el = nowSec() - ts;
++          if (verbose) printf("    depth %d: %zu of %zu blocks (%.1f%%), %.3g leaves, %.0fs, about %.0fs left\n", E + lev, (size_t)doneB, (size_t)NB, 100 * fr, (double)lf, el, fr > 0 ? el * (1 - fr) / fr : 0.0), fflush(stdout);
++        }
++      });
+       parFor(nth, NB, [&](int t, size_t b) {
++        struct Done { atomic<size_t> &d; ~Done() { d++; } } done{doneB};
++        FillStat &w = fs[t];   // this worker's own cache line (a packed vector cost ~40% of the depth-9 fill on arena)
+         for (auto &k : lay[E][b]) {
+           St<NCH> c = unpack<W>(k);
+           uint64_t sib[64]; int ns = 0;
+@@ -556,7 +712,7 @@
+             St<NCH> y = mulc<NCH>(L, c, km[m1]);
+             if (eqSt<NCH>(y, c)) continue;
+             uint64_t hy = K.template canon<false>(y);
+-            if (lev == 1) { leaves[t]++; qPush(t, slot(hy), 1); continue; }
++            if (lev == 1) { w.leaves++; qPush(t, slot(hy), 1); continue; }
+             // subtree cuts: y within depth E (exact), or symmetric to an earlier sibling
+             if (exact(hy) >= 0) continue;
+             bool dup = false; for (int i = 0; i < ns && !dup; i++) dup = sib[i] == hy;
+@@ -565,14 +721,20 @@
+             for (uint64_t mm = canonAfter[base[m1] + 1]; mm; mm &= mm - 1) {
+               St<NCH> z = mulc<NCH>(L, y, km[__builtin_ctzll(mm)]);
+               if (eqSt<NCH>(z, y)) continue;
+-              leaves[t]++; qPush(t, slotOf(z), 2);
+-              if (verbose && (leaves[t] & 4095) == 0) news[t] += (long long)(K.candCount(z) * 1000);
++              w.leaves++; qPush(t, slotOf(z), 2);
++              if (verbose && (w.leaves & 4095) == 0) { w.news += (long long)(K.candCount(z) * 1000); K.stat(z, w.cs); w.cs[3]++; }
+             }
+           }
+         }
+       });
+-      long long L1 = 0, N1 = qDrain(nth, lev), CC = 0; for (int t = 0; t < nth; t++) { L1 += leaves[t]; CC += news[t]; }
+-      if (verbose && lev == 2) printf("  leaf canonicalization: %.2f full evaluations\n", CC / 1000.0 / max(1LL, L1 / 4096));
++      fin = true; prog.join();
++      long long L1 = 0, N1 = qDrain(nth, lev), CC = 0; for (auto &f : fs) { L1 += f.leaves; CC += f.news; }
++      if (verbose && lev == 2) {
++        long long cs[4] = {0, 0, 0, 0}; for (auto &f : fs) for (int i = 0; i < 4; i++) cs[i] += f.cs[i];
++        double n = max(1LL, cs[3]);
++        printf("  leaf canonicalization: %.2f full evaluations; sampled: %.2f candidates, %.2f after partial, %.2f distinct images\n",
++               CC / 1000.0 / max(1LL, L1 / 4096), cs[0] / n, cs[1] / n, cs[2] / n);
++      }
+       D = E + lev;
+       PerfDelta pd = perfSince(ps);
+       if (verbose) printf("  fulltab depth %d: %lld leaves, %lld new slots, %.0f instr/leaf, %.0f cyc/leaf (%.1fs)\n", D, L1, N1, pd.ins / max(1LL, L1), pd.cyc / max(1LL, L1), nowSec() - t0), fflush(stdout);
+Only in /Users/rokicki/fast/proto: gpuprobe
+Only in /Users/rokicki/fast/proto: gpuprobe.mm
+diff -ru /Users/rokicki/fast/proto/kern.h src/kern.h
+--- /Users/rokicki/fast/proto/kern.h	2026-11-05 11:49:12
++++ src/kern.h	2026-11-11 13:26:05
+@@ -1,21 +1,68 @@
+ // Packed-state kernels.  One byte per position: low p bits = source position
+-// (global, < 2^p), high bits = orientation.  N <= 128 (TBL + TBX for more than 64 bytes).
++// (global, < 2^p), high bits = orientation.  N <= 128 (TBL + TBX for more than 64 bytes); N <= 144 with
++// 8-bit positions and no orientation (2026-11-11, for obl8ax/obl8op: six orbits of 24).
+ //   compose with constant b:  c[j] = a[b.p[j]] (+) b.o[j]
+ //     -> one TBL (1..4 regs), one ADD, then "mod" via UMIN(x, x - M[j])
+ //   premultiply by constant m: c = m * x : c[j] = m[x.p[j]] (+) x.o[j]
+ //   conjugate by symmetry s: s^-1 * a * s  (mirror lanes negate orientation)
+ #pragma once
+ #include "puzzle.h"
++#if defined(__aarch64__)
+ #include <arm_neon.h>
++static inline uint8x16_t aesMix(uint8x16_t h, uint8x16_t k) { return vaesmcq_u8(vaeseq_u8(h, k)); }
++#else  // x86 port (2026-11-11): NEON via SIMDe; AESE+AESMC(h, k) == AESENC(h ^ k, 0) exactly
++#define SIMDE_ENABLE_NATIVE_ALIASES
++#include <simde/arm/neon.h>
++#include <immintrin.h>
+ #include <cstring>
+-constexpr int KMAX = 128;   // max positions (7-bit position field when N > 64)
++static inline uint8x16_t aesMix(uint8x16_t h, uint8x16_t k) {
++  __m128i x, y; std::memcpy(&x, &h, 16); std::memcpy(&y, &k, 16);
++  x = _mm_aesenc_si128(_mm_xor_si128(x, y), _mm_setzero_si128());
++  uint8x16_t r; std::memcpy(&r, &x, 16); return r;
++}
++// native SSE views of SIMDe vectors (free: same 16 bytes)
++static inline __m128i M_(uint8x16_t v) { __m128i x; std::memcpy(&x, &v, 16); return x; }
++static inline uint8x16_t U_(__m128i x) { uint8x16_t v; std::memcpy(&v, &x, 16); return v; }
++// TBL over n consecutive 16-byte tables, natively (SIMDe's multi-register vqtbl/vqtbx cost ~4x on arena):
++// per table k, lane index i - 16k saturating-added to 0x70 keeps the low nibble for 0..15 and sets the
++// PSHUFB zeroing bit for everything else (also for lanes that wrapped below 0; needs n <= 8)
++static inline __m128i tblX(const __m128i *t, int n, __m128i i) {
++  const __m128i s16 = _mm_set1_epi8(16), k70 = _mm_set1_epi8(0x70);
++  __m128i r = _mm_setzero_si128();
++  for (int k = 0; k < n; k++) { r = _mm_or_si128(r, _mm_shuffle_epi8(_mm_loadu_si128(t + k), _mm_adds_epu8(i, k70))); i = _mm_sub_epi8(i, s16); }
++  return r;
++}
++#endif
++#include <cstring>
++constexpr int KMAX = 144;   // max positions (7-bit position field when N > 64, 8-bit and no orientation when N > 128)
+ 
++// Gather plan for a constant index vector (x86): for each output chunk i, only the source chunks it
++// reads, each with its PSHUFB control (lane index within that chunk, 0x80 = not from this chunk).
++// Pairs are stored contiguously so a plan touches only a few cache lines.
++struct GPlan {
++  uint8_t start[KMAX / 16 + 1], src[KMAX];   // src: byte offset (chunk * 16)
++  alignas(16) uint8_t ctl[KMAX][16];
++  void make(const uint8_t *idx) {
++    int n = 0;
++    for (int i = 0; i < KMAX / 16; i++) {
++      start[i] = n;
++      for (int k = 0; k < KMAX / 16; k++) {
++        bool any = false; uint8_t c[16];
++        for (int l = 0; l < 16; l++) { int v = idx[16 * i + l]; bool in = v >= 16 * k && v < 16 * k + 16; c[l] = in ? v - 16 * k : 0x80; any |= in; }
++        if (any) { src[n] = 16 * k; memcpy(ctl[n], c, 16); n++; }
++      }
++    }
++    start[KMAX / 16] = n;
++  }
++};
++
+ struct alignas(64) KElem {        // a constant element prepared for kernels
+   uint8_t idx[KMAX];   // b.p[j] (pos only)
+   uint8_t oadd[KMAX];  // b.o[j] << p
+   uint8_t packed[KMAX];// b as data: b.p[j] | b.o[j] << p   (used as a TBL table)
+   uint8_t neg[KMAX];   // 0xFF on lanes whose orientation must be negated (mirror)
+   bool anyneg;
++  GPlan gp;            // gather plan for idx (x86)
+ };
+ 
+ struct Layout {
+@@ -26,9 +73,10 @@
+   Layout() {}
+   Layout(const Puzzle &pz) {
+     N = pz.N;
+-    p = N <= 32 ? 5 : N <= 64 ? 6 : 7;
++    p = N <= 32 ? 5 : N <= 64 ? 6 : N <= 128 ? 7 : 8;
+     nch = (N + 15) / 16;
+     if (N > KMAX) ok = false;
++    if (p == 8) for (int j = 0; j < N; j++) if (pz.omodAt(j) > 1) ok = false;   // no room for orientation
+     posmask = (1 << p) - 1;
+     orimask = 0xFF & ~posmask;
+     memset(modsub, 0, KMAX);
+@@ -55,6 +103,7 @@
+         k.idx[j] = j; k.oadd[j] = 0; k.packed[j] = j; k.neg[j] = 0;
+       }
+     }
++    k.gp.make(k.idx);
+     return k;
+   }
+   void pack(const Elem &e, uint8_t *out) const {
+@@ -70,6 +119,9 @@
+ template <int NCH> struct St { uint8x16_t c[NCH]; };
+ 
+ template <int NCH> static inline uint8x16_t tblN(const St<NCH> &a, uint8x16_t idx) {
++#if !defined(__aarch64__)
++  return U_(tblX((const __m128i *)a.c, NCH, M_(idx)));
++#endif
+   if constexpr (NCH == 1) return vqtbl1q_u8(a.c[0], idx);
+   if constexpr (NCH == 2) { uint8x16x2_t t = {a.c[0], a.c[1]}; return vqtbl2q_u8(t, idx); }
+   if constexpr (NCH == 3) { uint8x16x3_t t = {a.c[0], a.c[1], a.c[2]}; return vqtbl3q_u8(t, idx); }
+@@ -81,11 +133,22 @@
+       if constexpr (NCH == 5) r = vqtbx1q_u8(r, a.c[4], hi);
+       if constexpr (NCH == 6) { uint8x16x2_t u = {a.c[4], a.c[5]}; r = vqtbx2q_u8(r, u, hi); }
+       if constexpr (NCH == 7) { uint8x16x3_t u = {a.c[4], a.c[5], a.c[6]}; r = vqtbx3q_u8(r, u, hi); }
+-      if constexpr (NCH == 8) { uint8x16x4_t u = {a.c[4], a.c[5], a.c[6], a.c[7]}; r = vqtbx4q_u8(r, u, hi); }
++      if constexpr (NCH >= 8) { uint8x16x4_t u = {a.c[4], a.c[5], a.c[6], a.c[7]}; r = vqtbx4q_u8(r, u, hi); }
++      if constexpr (NCH == 9) r = vqtbx1q_u8(r, a.c[8], vsubq_u8(idx, vdupq_n_u8(128)));
+     }
+     return r;
+   }
+ }
++// output chunk i of the gather a[idx] by a plan (x86; ARM keeps the TBL on idx)
++template <int NCH> static inline uint8x16_t gatherP(const St<NCH> &a, const GPlan &g, const uint8_t *idx, int i) {
++#if defined(__aarch64__)
++  (void)g; return tblN<NCH>(a, vld1q_u8(idx + 16 * i));
++#else
++  (void)idx; __m128i r = _mm_setzero_si128();
++  for (int t = g.start[i]; t < g.start[i + 1]; t++) r = _mm_or_si128(r, _mm_shuffle_epi8(_mm_load_si128((const __m128i *)((const uint8_t *)a.c + g.src[t])), _mm_load_si128((const __m128i *)g.ctl[t])));
++  return U_(r);
++#endif
++}
+ template <int NCH> static inline uint8x16_t tblK(const uint8_t *tab, uint8x16_t idx) {
+   St<NCH> t;
+   for (int i = 0; i < NCH; i++) t.c[i] = vld1q_u8(tab + 16 * i);
+@@ -102,7 +165,7 @@
+ template <int NCH> static inline St<NCH> mulc(const Layout &L, const St<NCH> &a, const KElem &b) {
+   St<NCH> r;
+   for (int i = 0; i < NCH; i++) {
+-    uint8x16_t t = tblN<NCH>(a, vld1q_u8(b.idx + 16 * i));
++    uint8x16_t t = gatherP<NCH>(a, b.gp, b.idx, i);
+     t = vaddq_u8(t, vld1q_u8(b.oadd + 16 * i));
+     r.c[i] = vminq_u8(t, vsubq_u8(t, vld1q_u8(L.modsub + 16 * i)));
+   }
+@@ -113,7 +176,7 @@
+   St<NCH> r;
+   uint8x16_t om = vdupq_n_u8(L.orimask);
+   for (int i = 0; i < NCH; i++) {
+-    uint8x16_t t = tblN<NCH>(a, vld1q_u8(b.idx + 16 * i));
++    uint8x16_t t = gatherP<NCH>(a, b.gp, b.idx, i);
+     uint8x16_t M = vld1q_u8(L.modsub + 16 * i);
+     uint8x16_t o = vandq_u8(t, om);
+     uint8x16_t on = vminq_u8(vsubq_u8(M, o), vsubq_u8(vdupq_n_u8(0), o)); // -o mod omod
+@@ -171,6 +234,7 @@
+   if constexpr (NCH > 5) acc = veorq_u64(vreinterpretq_u64_u8(vextq_u8(a.c[5], a.c[5], 9)), acc);
+   if constexpr (NCH > 6) acc = veorq_u64(vreinterpretq_u64_u8(vextq_u8(a.c[6], a.c[6], 13)), acc);
+   if constexpr (NCH > 7) acc = veorq_u64(vreinterpretq_u64_u8(vextq_u8(a.c[7], a.c[7], 1)), acc);
++  if constexpr (NCH > 8) acc = veorq_u64(vreinterpretq_u64_u8(vextq_u8(a.c[8], a.c[8], 6)), acc);
+   uint64_t lo = vgetq_lane_u64(acc, 0), hi = vgetq_lane_u64(acc, 1);
+   uint64_t h = (lo ^ (hi * 0x9E3779B97F4A7C15ULL)) * 0xD6E8FEB86659FD93ULL;
+   return h ^ (h >> 32);
+@@ -178,7 +242,11 @@
+ template <int NCH> static inline bool eqSt(const St<NCH> &a, const St<NCH> &b) {
+   uint8x16_t x = veorq_u8(a.c[0], b.c[0]);
+   for (int i = 1; i < NCH; i++) x = vorrq_u8(x, veorq_u8(a.c[i], b.c[i]));
++#if defined(__aarch64__)
+   return vmaxvq_u8(x) == 0;
++#else
++  return _mm_testz_si128(M_(x), M_(x));   // SIMDe's vmaxvq is a scalar loop on x86
++#endif
+ }
+ // lexicographic compare on bytes (for exact canonical forms)
+ template <int NCH> static inline int cmpSt(const St<NCH> &a, const St<NCH> &b) {
+Only in /Users/rokicki/fast/proto: keyeval
+Only in /Users/rokicki/fast/proto: keyeval.cpp
+Only in /Users/rokicki/fast/proto: ktest
+Only in /Users/rokicki/fast/proto: ktest.cpp
+Only in /Users/rokicki/fast/proto: latticetest
+Only in /Users/rokicki/fast/proto: latticetest.cpp
+Only in /Users/rokicki/fast/proto: mlp
+Only in /Users/rokicki/fast/proto: mlp.cpp
+Only in /Users/rokicki/fast/proto: pdbtest
+Only in /Users/rokicki/fast/proto: pdbtest.cpp
+diff -ru /Users/rokicki/fast/proto/perf.h src/perf.h
+--- /Users/rokicki/fast/proto/perf.h	2026-11-05 05:36:14
++++ src/perf.h	2026-11-11 09:52:08
+@@ -1,15 +1,42 @@
+-// Load-insensitive per-process counters on Apple Silicon (no root needed).
++// Per-process instruction and cycle counters.  Apple Silicon: proc_pid_rusage (no root needed).
++// Linux: perf_event_open, user space only, inherited by threads created later (opened by a static
++// initializer, before main; a thread's counts are added to the total when it exits, so totals are
++// exact once worker threads are joined).  Needs kernel.perf_event_paranoid <= 2; otherwise 0.
+ #pragma once
+-#include <libproc.h>
+ #include <sys/resource.h>
+ #include <unistd.h>
+ #include <chrono>
++#if defined(__APPLE__)
++#include <libproc.h>
++#elif defined(__linux__)
++#include <linux/perf_event.h>
++#include <sys/syscall.h>
++#include <cstring>
++struct PerfFds {
++  int ins = -1, cyc = -1;
++  static int open1(uint64_t config) {
++    perf_event_attr a; memset(&a, 0, sizeof a);
++    a.size = sizeof a; a.type = PERF_TYPE_HARDWARE; a.config = config;
++    a.inherit = 1; a.exclude_kernel = 1; a.exclude_hv = 1;
++    return (int)syscall(SYS_perf_event_open, &a, 0, -1, -1, 0);
++  }
++  PerfFds() { ins = open1(PERF_COUNT_HW_INSTRUCTIONS); cyc = open1(PERF_COUNT_HW_CPU_CYCLES); }
++  static unsigned long long rd(int fd) { unsigned long long v = 0; if (fd >= 0 && read(fd, &v, sizeof v) != sizeof v) v = 0; return v; }
++};
++inline PerfFds gPerfFds;
++#endif
+ struct PerfSnap { unsigned long long ins, cyc; double t; };
+ inline PerfSnap perfNow() {
++  double t = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
++#if defined(__APPLE__)
+   rusage_info_v4 ri;
+   proc_pid_rusage(getpid(), RUSAGE_INFO_V4, (rusage_info_t *)&ri);
+-  return {ri.ri_instructions, ri.ri_cycles,
+-          std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count()};
++  return {ri.ri_instructions, ri.ri_cycles, t};
++#elif defined(__linux__)
++  return {PerfFds::rd(gPerfFds.ins), PerfFds::rd(gPerfFds.cyc), t};
++#else
++  return {0, 0, t};
++#endif
+ }
+ struct PerfDelta { double ins, cyc, sec; };
+ inline PerfDelta perfSince(const PerfSnap &a) {
+Only in /Users/rokicki/fast/proto: solve
+diff -ru /Users/rokicki/fast/proto/solve.cpp src/solve.cpp
+--- /Users/rokicki/fast/proto/solve.cpp	2026-11-05 12:39:13
++++ src/solve.cpp	2026-11-11 13:26:05
+@@ -7,19 +7,30 @@
+ #include <fstream>
+ #include <unistd.h>
+ #include <sys/stat.h>
++#if defined(__APPLE__)
+ #include <sys/sysctl.h>
++#endif
++#if defined(__aarch64__)
++#define FS_CXXFLAGS " -std=c++20 -O3 -mcpu=native"
++#else
++#define FS_CXXFLAGS " -std=c++20 -O3 -march=native -I" FS_SIMDE " -Wno-unknown-pragmas"
++#endif
+ static char **gArgv;
+ static bool gTiming = false; static const char *gTws = "";   // -T: microbenchmarks (as twsearch -T)
+ static string cacheDir() {
+   const char *h = getenv("HOME");
++#if defined(__APPLE__)
+   string d = string(h ? h : "/tmp") + "/Library/Caches/fastsolve";
++#else
++  string d = string(h ? h : "/tmp") + "/.cache/fastsolve";
++#endif
+   mkdir(d.c_str(), 0755);
+   return d;
+ }
+ static uint64_t fnv(const string &s) { uint64_t h = 1469598103934665603ULL; for (unsigned char c : s) { h ^= c; h *= 1099511628211ULL; } return h; }
+ static string slurp(const char *fn) { ifstream f(fn, ios::binary); return string((istreambuf_iterator<char>(f)), istreambuf_iterator<char>()); }
+ 
+-template <int NCH> struct Solver {
++template <int NCH> struct alignas(64) Solver {   // per-worker (ws vector): own cache lines
+   const Puzzle &pz; const Layout &L; const CosetPDB<NCH> &P;
+   vector<KElem> km;
+   vector<int> inH, base, invMove;
+@@ -28,7 +39,7 @@
+   alignas(64) uint8_t colorTab[KMAX];
+   inline St<NCH> colors(const St<NCH> &x) const {
+     St<NCH> r; const uint8x16_t PM = vdupq_n_u8(L.posmask), OM = vdupq_n_u8(L.orimask);
+-    for (int i = 0; i < NCH; i++) r.c[i] = vorrq_u8(tblK<(NCH > 4 ? 8 : 4)>(colorTab, vandq_u8(x.c[i], PM)), vandq_u8(x.c[i], OM));
++    for (int i = 0; i < NCH; i++) r.c[i] = vorrq_u8(tblK<(NCH > 8 ? 9 : NCH > 4 ? 8 : 4)>(colorTab, vandq_u8(x.c[i], PM)), vandq_u8(x.c[i], OM));
+     return r;
+   }
+   inline bool solved(const St<NCH> &x) const { return eqSt<NCH>(colors(x), identColor); }
+@@ -402,7 +413,7 @@
+       string bin = cacheDir() + "/solve-" + to_string(fnv(defs + slurp(src.c_str()) + slurp((dir + "fastidx.h").c_str()) + slurp((dir + "pdb.h").c_str()) + slurp((dir + "kern.h").c_str())) & 0xffffffffffULL);
+       struct stat st;
+       if (stat(bin.c_str(), &st) != 0) {
+-        string cmd = "clang++ -std=c++20 -O3 -mcpu=native -DSPEC_BUILT " + defs + " -I" + dir + " -o " + bin + " " + src;
++        string cmd = string(getenv("CXX") ? getenv("CXX") : "c++") + FS_CXXFLAGS + " -DSPEC_BUILT " + defs + " -I" + dir + " -o " + bin + " " + src;
+         printf("specializing: %s\n", defs.c_str()); fflush(stdout);
+         if (system(cmd.c_str()) != 0) { fprintf(stderr, "spec compile failed; continuing generic\n"); goto generic; }
+       }
+@@ -533,7 +544,7 @@
+ // it also serves puzzles with identical pieces, which are not groups).  Input lines
+ // are generating sequences; output follows twsearch -s/-si (Solving / solution /
+ // Found ... / No solution found in d).
+-template <int NCH> struct FullSolver {
++template <int NCH> struct alignas(64) FullSolver {   // per-worker search state and counters: own cache lines
+   const Puzzle &pz; const Layout &L; const ColorSpace<NCH> &C; const FullTab<NCH> &T;
+   vector<KElem> km; vector<int> base; vector<uint64_t> canon;
+   long long nodes = 0, probes = 0;
+@@ -610,9 +621,16 @@
+   }
+   if (pz.moves.size() > 64) { fprintf(stderr, "too many moves\n"); return 1; }
+   FullTab<NCH> T(pz, L, C, K, canon);
+-  double ram = 0; { size_t sz = sizeof ram; uint64_t mem = 0; size_t ms = sizeof mem; sysctlbyname("hw.memsize", &mem, &ms, nullptr, 0); ram = mem / 1e9; (void)sz; }
++  double ram = 0; { size_t sz = sizeof ram; uint64_t mem = 0; size_t ms = sizeof mem; 
++#if defined(__APPLE__)
++  sysctlbyname("hw.memsize", &mem, &ms, nullptr, 0);
++#else
++  mem = (uint64_t)sysconf(_SC_PHYS_PAGES) * (uint64_t)sysconf(_SC_PAGESIZE); (void)ms;
++#endif
++  ram = mem / 1e9; (void)sz; }
+   double gb = getenv("FTGB") ? atof(getenv("FTGB")) : 0.5 * ram, lgb = getenv("LAYERGB") ? atof(getenv("LAYERGB")) : 6;
+   PerfSnap s0 = perfNow();
++  T.fp = to_string(fnv(slurp(gTws)) & 0xffffffffffffULL);
+   T.build(gb, lgb, nthreads, true);
+   PerfDelta fd = perfSince(s0);
+   printf("table built in %.1fs\n", fd.sec); fflush(stdout);
+@@ -631,6 +649,10 @@
+     };
+     run("moves", [&](const St<NCH> &x, long) { return (uint64_t)vgetq_lane_u8(x.c[0], 1); });
+     run("moves plus hash", [&](const St<NCH> &x, long) { return aesHash<NCH>(x); });
++    run("moves plus masks", [&](const St<NCH> &x, long) { uint32_t mk[64]; K.masks(x, mk); return (uint64_t)mk[0]; });
++    run("moves plus feature candidates", [&](const St<NCH> &x, long) { int cd[1024]; return (uint64_t)K.features(x, cd); });
++    run("moves plus one symmetry gather (6 chunks)", [&](const St<NCH> &x, long i) { return (uint64_t)vgetq_lane_u8(K.apply(x, 1 + (i & 15)).c[NCH - 1], 3); });
++    run("moves plus one symHash", [&](const St<NCH> &x, long i) { return K.symHash(x, 1 + (i & 15)); });
+     run("moves plus symmetry (canonical hash)", [&](const St<NCH> &x, long) { return K.template canon<false>(x); });
+     run("moves plus lookup", [&](const St<NCH> &x, long) { return (uint64_t)T.code(T.slotOf(x)); });
+     for (int look = 2; look <= 16; look *= 2) {
+@@ -714,6 +736,7 @@
+       case 6: return goFull<6>(pz, argv[2], nscr, nt);
+       case 7: return goFull<7>(pz, argv[2], nscr, nt);
+       case 8: return goFull<8>(pz, argv[2], nscr, nt);
++      case 9: return goFull<9>(pz, argv[2], nscr, nt);
+     }
+   }
+   switch (L.nch) {
+Only in /Users/rokicki/fast/proto: solve.new
+Only in /Users/rokicki/fast/proto: solve_new
+Only in /Users/rokicki/fast/proto: solve_spec
+Only in /Users/rokicki/fast/proto: symtest
+Only in /Users/rokicki/fast/proto: symtest.cpp
+Only in /Users/rokicki/fast/proto: tbench
+Only in /Users/rokicki/fast/proto: tbench.cpp
+Only in /Users/rokicki/fast/proto: twbench
+Only in /Users/rokicki/fast/proto: ud2
+Only in /Users/rokicki/fast/proto: x86k.cpp

@@ -1,0 +1,47 @@
+# ./diagcheck /Users/rokicki/orbitsolve/cert/diag/centres-first/stages/UD..LFRB
+stage UD..LFRB: 2 solved groups kept, 4 target groups; 17 segment files
+lines: 3950059, 0 bad, 0 in the wrong segment; longest 18; lengths: 0:1 4:4 5:28 6:103 7:268 8:1176 9:4440 10:21166 11:89795 12:260117 13:666159 14:1251658 15:1246473 16:391059 17:17542 18:70 (1s)
+classes: 3950059 distinct positions, 0 lines repeat a class already listed; 16 cube symmetries keep the stage
+  w00: 1 lines, longest 0, 1 stage states, 0 not covered
+  w02: 10 lines, longest 8, 96 stage states, 0 not covered
+  w03: 32 lines, longest 8, 512 stage states, 0 not covered
+  w04: 351 lines, longest 12, 4824 stage states, 0 not covered
+  w05: 1584 lines, longest 13, 25344 stage states, 0 not covered
+  w06: 7840 lines, longest 14, 122016 stage states, 0 not covered
+  w07: 28368 lines, longest 15, 453888 stage states, 0 not covered
+  w08: 87981 lines, longest 16, 1395126 stage states, 0 not covered
+  w09: 216152 lines, longest 16, 3458432 stage states, 0 not covered
+  w10: 434772 lines, longest 17, 6928704 stage states, 0 not covered
+  w11: 690168 lines, longest 17, 11042688 stage states, 0 not covered
+  w12: 860848 lines, longest 18, 13731616 stage states, 0 not covered
+  w13: 805032 lines, longest 18, 12880512 stage states, 0 not covered
+  w14: 540254 lines, longest 18, 8607744 stage states, 0 not covered
+  w15: 228936 lines, longest 18, 3662976 stage states, 0 not covered
+  w16: 47730 lines, longest 18, 748521 stage states, 0 not covered
+coverage checked (24s)
+side effects on 4x4x4, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 0 keep colours but move other centre pieces (not pure), 3950059 pure
+side effects on 5x5x5, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 6x6x6, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 6x6x6, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 7x7x7, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 7x7x7, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 8x8x8, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 8x8x8, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 8x8x8, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 9x9x9, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 9x9x9, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 9x9x9, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 10x10x10, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 10x10x10, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 10x10x10, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 10x10x10, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 11x11x11, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 11x11x11, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 11x11x11, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 11x11x11, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 12x12x12, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 12x12x12, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 12x12x12, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 12x12x12, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+side effects on 12x12x12, diagonal depth 6: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 3810737 keep colours but move other centre pieces (not pure), 139322 pure
+PASS: every stage state in these segments is solved in at most 18 moves (39s)

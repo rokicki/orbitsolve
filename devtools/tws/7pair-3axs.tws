@@ -1,0 +1,124 @@
+# 7pair-3axs.tws (from 7pair-3ax.tws): stage 3ax generation in the reduced move set F R B L 2U 3U 2D 3D.
+# Those moves never move a U or D centre piece, so every set keeps only its 16 side pieces
+# (L F R B, in that order).  Solved: PAIRA, PAIRB two colours (F/B 1, L/R 2: the 3ax goal);
+# MID2, MID3 four colours (L 1, F 2, R 3, B 4), so every identity solve keeps the other oblique
+# orbits.  Rotations y, z as in 7pair-4op.tws.  Uniquify with 7pair-3axs-uniq.tws.
+Name PuzzleGeometryPuzzle
+
+Set MID2 16 1
+Set PAIRA 16 1
+Set MID3 16 1
+Set PAIRB 16 1
+
+Solved
+MID2
+1 1 1 1 2 2 2 2 3 3 3 3 4 4 4 4
+PAIRA
+2 2 2 2 1 1 1 1 2 2 2 2 1 1 1 1
+MID3
+1 1 1 1 2 2 2 2 3 3 3 3 4 4 4 4
+PAIRB
+2 2 2 2 1 1 1 1 2 2 2 2 1 1 1 1
+End
+
+Move F
+MID2
+1 2 3 4 8 5 6 7 9 10 11 12 13 14 15 16
+PAIRA
+1 2 3 4 8 5 6 7 9 10 11 12 13 14 15 16
+MID3
+1 2 3 4 8 5 6 7 9 10 11 12 13 14 15 16
+PAIRB
+1 2 3 4 8 5 6 7 9 10 11 12 13 14 15 16
+End
+
+Move B
+MID2
+1 2 3 4 5 6 7 8 9 10 11 12 16 13 14 15
+PAIRA
+1 2 3 4 5 6 7 8 9 10 11 12 16 13 14 15
+MID3
+1 2 3 4 5 6 7 8 9 10 11 12 16 13 14 15
+PAIRB
+1 2 3 4 5 6 7 8 9 10 11 12 16 13 14 15
+End
+
+Move 2D
+MID2
+1 2 15 4 5 6 3 8 9 10 7 12 13 14 11 16
+PAIRA
+1 2 3 16 5 6 7 4 9 10 11 8 13 14 15 12
+PAIRB
+1 2 15 4 5 6 3 8 9 10 7 12 13 14 11 16
+End
+
+Move 3D
+PAIRA
+1 2 15 4 5 6 3 8 9 10 7 12 13 14 11 16
+MID3
+1 2 15 4 5 6 3 8 9 10 7 12 13 14 11 16
+PAIRB
+1 2 3 16 5 6 7 4 9 10 11 8 13 14 15 12
+End
+
+Move 3U
+PAIRA
+5 2 3 4 9 6 7 8 13 10 11 12 1 14 15 16
+MID3
+5 2 3 4 9 6 7 8 13 10 11 12 1 14 15 16
+PAIRB
+1 6 3 4 5 10 7 8 9 14 11 12 13 2 15 16
+End
+
+Move 2U
+MID2
+5 2 3 4 9 6 7 8 13 10 11 12 1 14 15 16
+PAIRA
+1 6 3 4 5 10 7 8 9 14 11 12 13 2 15 16
+PAIRB
+5 2 3 4 9 6 7 8 13 10 11 12 1 14 15 16
+End
+
+Move L
+MID2
+4 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16
+PAIRA
+4 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16
+MID3
+4 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16
+PAIRB
+4 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16
+End
+
+Move R
+MID2
+1 2 3 4 5 6 7 8 12 9 10 11 13 14 15 16
+PAIRA
+1 2 3 4 5 6 7 8 12 9 10 11 13 14 15 16
+MID3
+1 2 3 4 5 6 7 8 12 9 10 11 13 14 15 16
+PAIRB
+1 2 3 4 5 6 7 8 12 9 10 11 13 14 15 16
+End
+
+Move y
+MID2
+13 14 15 16 1 2 3 4 5 6 7 8 9 10 11 12
+PAIRA
+13 14 15 16 1 2 3 4 5 6 7 8 9 10 11 12
+MID3
+13 14 15 16 1 2 3 4 5 6 7 8 9 10 11 12
+PAIRB
+13 14 15 16 1 2 3 4 5 6 7 8 9 10 11 12
+End
+
+Move z
+MID2
+7 8 5 6 3 4 1 2 15 16 13 14 11 12 9 10
+PAIRA
+7 8 5 6 3 4 1 2 15 16 13 14 11 12 9 10
+MID3
+7 8 5 6 3 4 1 2 15 16 13 14 11 12 9 10
+PAIRB
+7 8 5 6 3 4 1 2 15 16 13 14 11 12 9 10
+End

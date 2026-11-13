@@ -1,0 +1,8 @@
+8   [2F U]                 original BAD  patched ok
+8   [2F U']                original BAD  patched ok
+8   [2F U2]                original ok   patched ok
+7   [4U 4F]                original BAD  patched ok
+7   [4F 4U]                original ok   patched ok
+9   [5U 5R]                original BAD  patched ok
+7   [4U R 2F 3L U' 4F]     original BAD  patched ok
+random 60-move scrambles, N=7..12: original correct 0/24, patched correct 24/24

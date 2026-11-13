@@ -1,0 +1,210 @@
+# 7pair-1ud-uniq.tws: uniquify file for 7pair-1ud.tws output (-U): only PAIRA, PAIRB, every piece distinct; rotations y and FLv.  Same as 7pairudu.tws.
+# 7pairu.tws: uniquify file for 7pair.tws output (-U): only PAIRA, PAIRB, every piece distinct; all rotations.
+# 7pair.tws (and 7pairud.tws): 7.tws (puzzle-geometry --ksolve --optimize --rotations 7x7x7) cut down for
+# centres-first algorithms on the (2,3) oblique pair: only the pair (PAIRA = old CENTERS3,
+# PAIRB = old CENTERS7) and the two mid orbits (MID2 = old CENTERS2 at depth 2, MID3 = old
+# CENTERS5 at depth 3) are kept.  Corners, edges, diagonals (old CENTERS, CENTERS4) dropped.
+# Keeping MID2 and MID3 colour-solved is exactly keeping every other oblique orbit on any n.
+# Solved: PAIRA and PAIRB pieces all identical (any pair effect); MID2, MID3 colour-solved.
+# /Users/rokicki/.bun/bin/bun /Users/rokicki/cubing.js/src/bin/puzzle-geometry-bin.ts --ksolve --optimize --rotations 7x7x7
+# PuzzleGeometry 0.1 Copyright 2018 Tomas Rokicki.
+# 
+Name PuzzleGeometryPuzzle
+
+Set PAIRA 24 1
+# 1 3B U 2L
+# 2 2B U 3R
+# 3 3F U 2R
+# 4 2F U 3L
+# 5 2B 3U L
+# 6 3F 2U L
+# 7 2F 3D L
+# 8 3B 2D L
+# 9 F 3U 2L
+# 10 F 2U 3R
+# 11 F 3D 2R
+# 12 F 2D 3L
+# 13 2F 3U R
+# 14 3B 2U R
+# 15 2B 3D R
+# 16 3F 2D R
+# 17 B 3U 2R
+# 18 B 2U 3L
+# 19 B 3D 2L
+# 20 B 2D 3R
+# 21 3F D 2L
+# 22 2F D 3R
+# 23 3B D 2R
+# 24 2B D 3L
+Set PAIRB 24 1
+# 1 2B U 3L
+# 2 3B U 2R
+# 3 2F U 3R
+# 4 3F U 2L
+# 5 3B 2U L
+# 6 2F 3U L
+# 7 3F 2D L
+# 8 2B 3D L
+# 9 F 2U 3L
+# 10 F 3U 2R
+# 11 F 2D 3R
+# 12 F 3D 2L
+# 13 3F 2U R
+# 14 2B 3U R
+# 15 3B 2D R
+# 16 2F 3D R
+# 17 B 2U 3R
+# 18 B 3U 2L
+# 19 B 2D 3L
+# 20 B 3D 2R
+# 21 2F D 3L
+# 22 3F D 2R
+# 23 2B D 3R
+# 24 3B D 2L
+
+Solved
+PAIRA
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+PAIRB
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+End
+
+Move F
+PAIRA
+1 2 3 4 5 6 7 8 12 9 10 11 13 14 15 16 17 18 19 20 21 22 23 24
+PAIRB
+1 2 3 4 5 6 7 8 12 9 10 11 13 14 15 16 17 18 19 20 21 22 23 24
+End
+
+Move 2F
+PAIRA
+1 2 3 7 5 6 22 8 9 10 11 12 4 14 15 16 17 18 19 20 21 13 23 24
+PAIRB
+1 2 6 4 5 21 7 8 9 10 11 12 13 14 15 3 17 18 19 20 16 22 23 24
+End
+
+Move 3F
+PAIRA
+1 2 6 4 5 21 7 8 9 10 11 12 13 14 15 3 17 18 19 20 16 22 23 24
+PAIRB
+1 2 3 7 5 6 22 8 9 10 11 12 4 14 15 16 17 18 19 20 21 13 23 24
+End
+
+Move 3B
+PAIRA
+14 2 3 4 5 6 7 1 9 10 11 12 13 23 15 16 17 18 19 20 21 22 8 24
+PAIRB
+1 15 3 4 2 6 7 8 9 10 11 12 13 14 24 16 17 18 19 20 21 22 23 5
+End
+
+Move 2B
+PAIRA
+1 15 3 4 2 6 7 8 9 10 11 12 13 14 24 16 17 18 19 20 21 22 23 5
+PAIRB
+14 2 3 4 5 6 7 1 9 10 11 12 13 23 15 16 17 18 19 20 21 22 8 24
+End
+
+Move B
+PAIRA
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 20 17 18 19 21 22 23 24
+PAIRB
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 20 17 18 19 21 22 23 24
+End
+
+Move D
+PAIRA
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 24 21 22 23
+PAIRB
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 24 21 22 23
+End
+
+Move 2D
+PAIRA
+1 2 3 4 5 6 7 20 9 10 11 8 13 14 15 12 17 18 19 16 21 22 23 24
+PAIRB
+1 2 3 4 5 6 19 8 9 10 7 12 13 14 11 16 17 18 15 20 21 22 23 24
+End
+
+Move 3D
+PAIRA
+1 2 3 4 5 6 19 8 9 10 7 12 13 14 11 16 17 18 15 20 21 22 23 24
+PAIRB
+1 2 3 4 5 6 7 20 9 10 11 8 13 14 15 12 17 18 19 16 21 22 23 24
+End
+
+Move 3U
+PAIRA
+1 2 3 4 9 6 7 8 13 10 11 12 17 14 15 16 5 18 19 20 21 22 23 24
+PAIRB
+1 2 3 4 5 10 7 8 9 14 11 12 13 18 15 16 17 6 19 20 21 22 23 24
+End
+
+Move 2U
+PAIRA
+1 2 3 4 5 10 7 8 9 14 11 12 13 18 15 16 17 6 19 20 21 22 23 24
+PAIRB
+1 2 3 4 9 6 7 8 13 10 11 12 17 14 15 16 5 18 19 20 21 22 23 24
+End
+
+Move U
+PAIRA
+4 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+PAIRB
+4 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+End
+
+Move y
+PAIRA
+4 1 2 3 9 10 11 12 13 14 15 16 17 18 19 20 5 6 7 8 22 23 24 21
+PAIRB
+4 1 2 3 9 10 11 12 13 14 15 16 17 18 19 20 5 6 7 8 22 23 24 21
+End
+
+Move L
+PAIRA
+1 2 3 4 8 5 6 7 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+PAIRB
+1 2 3 4 8 5 6 7 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24
+End
+
+Move 2L
+PAIRA
+19 2 3 4 5 6 7 8 1 10 11 12 13 14 15 16 17 18 21 20 9 22 23 24
+PAIRB
+1 2 3 18 5 6 7 8 9 10 11 4 13 14 15 16 17 24 19 20 21 22 23 12
+End
+
+Move 3L
+PAIRA
+1 2 3 18 5 6 7 8 9 10 11 4 13 14 15 16 17 24 19 20 21 22 23 12
+PAIRB
+19 2 3 4 5 6 7 8 1 10 11 12 13 14 15 16 17 18 21 20 9 22 23 24
+End
+
+Move 3R
+PAIRA
+1 10 3 4 5 6 7 8 9 22 11 12 13 14 15 16 17 18 19 2 21 20 23 24
+PAIRB
+1 2 11 4 5 6 7 8 9 10 23 12 13 14 15 16 3 18 19 20 21 22 17 24
+End
+
+Move 2R
+PAIRA
+1 2 11 4 5 6 7 8 9 10 23 12 13 14 15 16 3 18 19 20 21 22 17 24
+PAIRB
+1 10 3 4 5 6 7 8 9 22 11 12 13 14 15 16 17 18 19 2 21 20 23 24
+End
+
+Move R
+PAIRA
+1 2 3 4 5 6 7 8 9 10 11 12 16 13 14 15 17 18 19 20 21 22 23 24
+PAIRB
+1 2 3 4 5 6 7 8 9 10 11 12 16 13 14 15 17 18 19 20 21 22 23 24
+End
+
+Move FLv
+PAIRA
+22 23 24 21 11 12 9 10 7 8 5 6 19 20 17 18 15 16 13 14 4 1 2 3
+PAIRB
+22 23 24 21 11 12 9 10 7 8 5 6 19 20 17 18 15 16 13 14 4 1 2 3
+End

@@ -1,0 +1,16 @@
+N=64: beam widths 1, 2, 4, ... (Ctrl-C to stop and keep the best)
+  width     1: total      46902  (edges 1811, corners+middle edges 9, centres 45082)  0.03s  best
+  width     2: total      44911  (edges 1628, corners+middle edges 9, centres 43274)  0.03s  best
+  width     4: total      43133  (edges 1507, corners+middle edges 9, centres 41617)  0.05s  best
+  width     8: total      41681  (edges 1442, corners+middle edges 9, centres 40230)  0.10s  best
+  width    16: total      40209  (edges 1345, corners+middle edges 9, centres 38855)  0.17s  best
+  width    32: total      39136  (edges 1293, corners+middle edges 9, centres 37834)  0.45s  best
+  width    64: total      38337  (edges 1229, corners+middle edges 9, centres 37099)  0.82s  best
+  width   128: total      37437  (edges 1202, corners+middle edges 9, centres 36226)  1.83s  best
+best: 37437 moves
+N=64  SOLVED  pairs 465, diagonals 31, mids 0, wing orbits 31
+  corners             9 moves
+  wings            1202 moves, 38.8 per wing orbit; 1.15s
+  oblique pairs   34803 moves (raw 34803, 0.0% merged away), 74.85 per pair; solve 0.37s, total 0.37s
+  diag+mid         1423 moves (raw 1423, 0.0% merged away); solve 0.31s, total 0.31s
+    raw per orbit: diagonal 46.3, mid 0.0

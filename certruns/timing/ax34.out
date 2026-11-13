@@ -1,0 +1,7 @@
+# load: load averages: 2.02 1.95 1.98
+# ./certsolve 100 --timing --seed 100 --bound --ud 35 --ax 34
+# seed 100
+# N=100: 1176 oblique pairs; mode boundary choice
+# bounds: 1ud + 2ud <= 35, 3ax + 4op <= 34; actions of at most 10 moves, slack 6, deep 6 (second action at most 8)
+# per orbit: oblique pair 69, mid 0, diagonal 44, wing 162; corners 11; 0 mid, 49 diagonal, 49 wing orbits; whole-cube bound 91249
+# exit 142

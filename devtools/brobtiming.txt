@@ -1,0 +1,5 @@
+N 256 moves 540494 cancel 50636 blocks 21833 wingmoves 10923 centermoves 529571 real 3.02 
+N 512 moves 1867852 cancel 154802 blocks 60080 wingmoves 19649 centermoves 1848203 real 4.78 
+N 1024 moves 6635143 cancel 450043 blocks 165335 wingmoves 32192 centermoves 6602951 real 7.67 
+N 2048 moves 23777285 cancel 1375819 blocks 409493 wingmoves 48732 centermoves 23728553 real 13.22 
+N 4096 moves 86807597 cancel 4039517 blocks 1252249 wingmoves 73830 centermoves 86733767 real 33.39 

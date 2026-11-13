@@ -1,0 +1,14 @@
+# Move sets for 3ax/4op twsearch runs (2026-11-02): name, then the --moves list (one obl8ax.tws / obl8op.tws for all;
+# -si still parses every line, since twsearch parses with the unfiltered moves).  Never list rotations: twsearch keeps
+# every rotation the set preserves (8 for each set below; ALL = no --moves: 24 on 4op, 8 on 3ax).  Q sets list 2U etc.
+# (all powers); a base move may appear only once.  Use ~/twsearch2/build/bin/twsearch, --nowrite.
+# One file per set: h.moveset ... hq23v.moveset (the list alone), e.g. --moves `cat hq23.moveset`.
+H F,B,L,R,2U2,3U2,2D2,3D2
+H2 F,B,L,R,2U2,3U2,2D2,3D2,2F2,2B2,2L2,2R2
+H3 F,B,L,R,2U2,3U2,2D2,3D2,3F2,3B2,3L2,3R2
+H23 F,B,L,R,2U2,3U2,2D2,3D2,2F2,2B2,2L2,2R2,3F2,3B2,3L2,3R2
+HQ F,B,L,R,2U,3U,2D,3D
+HQ2 F,B,L,R,2U,3U,2D,3D,2F2,2B2,2L2,2R2
+HQ3 F,B,L,R,2U,3U,2D,3D,3F2,3B2,3L2,3R2
+HQ23 F,B,L,R,2U,3U,2D,3D,2F2,2B2,2L2,2R2,3F2,3B2,3L2,3R2
+HQ23V F,B,L,R,2U,3U,2D,3D,2F,2B,2L,2R,3F,3B,3L,3R

@@ -1,0 +1,20 @@
+LB [p6.txt single8.txt] W=1 l=3.00 pool=23034 nocancel solved 128/128  moves 90.61 (sd 8.27, /orbit 45.30, raw 90.61)  algs 12.79  1.4 ms/pair
+LB [p6.txt single8.txt] W=2 l=3.00 pool=23034 nocancel solved 128/128  moves 86.89 (sd 6.61, /orbit 43.45, raw 86.89)  algs 12.35  2.3 ms/pair
+LB [p6.txt single8.txt] W=4 l=3.00 pool=23034 nocancel solved 128/128  moves 82.36 (sd 5.90, /orbit 41.18, raw 82.36)  algs 11.91  4.2 ms/pair
+LB [p7.txt single8.txt] W=1 l=3.00 pool=101718 nocancel solved 128/128  moves 88.63 (sd 7.44, /orbit 44.32, raw 88.63)  algs 12.15  5.1 ms/pair
+LB [p7.txt single8.txt] W=2 l=3.00 pool=101718 nocancel solved 128/128  moves 84.84 (sd 6.78, /orbit 42.42, raw 84.84)  algs 11.74  10.3 ms/pair
+LB [p7.txt single8.txt] W=4 l=3.00 pool=101718 nocancel solved 128/128  moves 80.96 (sd 5.68, /orbit 40.48, raw 80.96)  algs 11.35  23.1 ms/pair
+LB [p8.txt c12x.txt] W=1 l=3.00 pool=1172928 nocancel solved 128/128  moves 75.37 (sd 5.04, /orbit 37.68, raw 75.37)  algs 9.05  50.5 ms/pair
+LB [p8.txt c12x.txt] W=2 l=3.00 pool=1172928 nocancel solved 128/128  moves 72.78 (sd 4.82, /orbit 36.39, raw 72.78)  algs 8.78  112.5 ms/pair
+LB [p8.txt c12x.txt] W=4 l=3.00 pool=1172928 nocancel solved 128/128  moves 69.84 (sd 5.33, /orbit 34.92, raw 69.84)  algs 8.42  233.8 ms/pair
+CB [p8] W=1 l=1.00 pool=1172928 nocancel solved 64/64  moves 69.50 (sd 4.34, /orbit 34.75, raw 69.50)  algs 8.80  578.0 ms/pair
+CB [p8] W=2 l=1.00 pool=1172928 nocancel solved 64/64  moves 66.94 (sd 3.99, /orbit 33.47, raw 66.94)  algs 8.50  1090.0 ms/pair
+CB [p8] W=4 l=1.00 pool=1172928 nocancel solved 64/64  moves 64.86 (sd 3.73, /orbit 32.43, raw 64.86)  algs 8.28  2118.1 ms/pair
+CB [p8] W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 63.62 (sd 3.58, /orbit 31.81, raw 63.62)  algs 8.17  4301.9 ms/pair
+CB+EG [p8] W=1 l=1.00 pool=1172928 nocancel solved 64/64  moves 64.27 (sd 4.45, /orbit 32.13, raw 64.27)  algs 7.81  786.4 ms/pair
+CB+EG [p8] W=2 l=1.00 pool=1172928 nocancel solved 64/64  moves 62.64 (sd 3.85, /orbit 31.32, raw 62.64)  algs 7.75  1417.7 ms/pair
+CB+EG [p8] W=4 l=1.00 pool=1172928 nocancel solved 64/64  moves 61.08 (sd 3.63, /orbit 30.54, raw 61.08)  algs 7.58  2664.2 ms/pair
+CB+EG [p8] W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 59.92 (sd 3.60, /orbit 29.96, raw 59.92)  algs 7.38  5068.2 ms/pair
+CB+EG [p8] W=16 l=1.00 pool=1172928 nocancel solved 64/64  moves 58.84 (sd 3.17, /orbit 29.42, raw 58.84)  algs 7.25  9627.6 ms/pair
+CB+EG2 [p8] W=8 l=1.00 pool=1172928 nocancel solved 32/32  moves 59.22 (sd 3.67, /orbit 29.61, raw 59.22)  algs 7.22  21110.0 ms/pair
+CB+EG2 [p8] W=16 l=1.00 pool=1172928 nocancel solved 32/32  moves 58.44 (sd 3.39, /orbit 29.22, raw 58.44)  algs 7.25  18576.8 ms/pair

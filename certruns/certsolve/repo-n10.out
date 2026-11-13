@@ -1,0 +1,89 @@
+# solver/certsolve 10 --bound --seed 2024 --cubes 5 --threads 16 --cache /var/tmp/orbitsolve/repocache
+# seed 2024
+# N=10: 6 oblique pairs; mode boundary choice
+# bounds: 1ud + 2ud <= 33, 3ax + 4op <= 40; actions of at most 10 moves, slack 6, deep 6 (second action at most 8)
+# per orbit: oblique pair 73, mid 0, diagonal 44, wing 162; corners 11; 0 mid, 4 diagonal, 4 wing orbits; whole-cube bound 1273
+cube 1 pair (1,2): 1ud 14 + 2ud 15 + 3ax 16 + 4op 18 = 63
+cube 1 pair (1,3): 1ud 14 + 2ud 17 + 3ax 19 + 4op 16 = 66
+cube 1 pair (1,4): 1ud 15 + 2ud 13 + 3ax 15 + 4op 15 = 58
+cube 1 pair (2,3): 1ud 13 + 2ud 16 + 3ax 15 + 4op 19 = 63
+cube 1 pair (2,4): 1ud 12 + 2ud 17 + 3ax 19 + 4op 15 = 63
+cube 1 pair (3,4): 1ud 15 + 2ud 18 + 3ax 16 + 4op 18 = 67
+cube 1 diagonal 2: D 8 + U 14 + LFRB 16 = 38
+cube 1 diagonal 3: D 10 + U 14 + LFRB 15 = 39
+cube 1 diagonal 4: D 9 + U 15 + LFRB 15 = 39
+cube 1 diagonal 5: D 10 + U 14 + LFRB 14 = 38
+cube 1 corners: 10
+cube 1 wing 2: 4 wings 17 + 4 wings 22 + 5 wings 24 + 11 wings 47 = 110
+cube 1 wing 3: 4 wings 22 + 4 wings 22 + 5 wings 24 + 11 wings 40 = 108
+cube 1 wing 4: 4 wings 26 + 4 wings 16 + 5 wings 35 + 11 wings 33 = 110
+cube 1 wing 5: 4 wings 22 + 4 wings 24 + 5 wings 32 + 11 wings 41 = 119
+cube 1 solved: obliques 380 + mids 0 + diagonals 154 + corners 10 + wings 447 = 991 moves (bound 1273)
+cube 2 pair (1,2): 1ud 13 + 2ud 16 + 3ax 17 + 4op 21 = 67
+cube 2 pair (1,3): 1ud 13 + 2ud 13 + 3ax 18 + 4op 19 = 63
+cube 2 pair (1,4): 1ud 15 + 2ud 13 + 3ax 17 + 4op 20 = 65
+cube 2 pair (2,3): 1ud 15 + 2ud 13 + 3ax 20 + 4op 20 = 68
+cube 2 pair (2,4): 1ud 15 + 2ud 17 + 3ax 19 + 4op 18 = 69
+cube 2 pair (3,4): 1ud 13 + 2ud 16 + 3ax 20 + 4op 18 = 67
+cube 2 diagonal 2: D 7 + U 13 + LFRB 16 = 36
+cube 2 diagonal 3: D 10 + U 13 + LFRB 15 = 38
+cube 2 diagonal 4: D 9 + U 15 + LFRB 14 = 38
+cube 2 diagonal 5: D 10 + U 10 + LFRB 15 = 35
+cube 2 corners: 8
+cube 2 wing 2: 4 wings 24 + 4 wings 22 + 5 wings 32 + 11 wings 55 = 133
+cube 2 wing 3: 4 wings 25 + 4 wings 24 + 5 wings 33 + 11 wings 47 = 129
+cube 2 wing 4: 4 wings 22 + 4 wings 24 + 5 wings 32 + 11 wings 32 = 110
+cube 2 wing 5: 4 wings 19 + 4 wings 19 + 5 wings 24 + 11 wings 44 = 106
+cube 2 solved: obliques 399 + mids 0 + diagonals 147 + corners 8 + wings 478 = 1032 moves (bound 1273)
+cube 3 pair (1,2): 1ud 15 + 2ud 15 + 3ax 17 + 4op 20 = 67
+cube 3 pair (1,3): 1ud 10 + 2ud 17 + 3ax 19 + 4op 21 = 67
+cube 3 pair (1,4): 1ud 11 + 2ud 16 + 3ax 17 + 4op 19 = 63
+cube 3 pair (2,3): 1ud 15 + 2ud 15 + 3ax 16 + 4op 19 = 65
+cube 3 pair (2,4): 1ud 14 + 2ud 17 + 3ax 17 + 4op 19 = 67
+cube 3 pair (3,4): 1ud 14 + 2ud 17 + 3ax 16 + 4op 16 = 63
+cube 3 diagonal 2: D 10 + U 13 + LFRB 16 = 39
+cube 3 diagonal 3: D 4 + U 8 + LFRB 11 = 23
+cube 3 diagonal 4: D 10 + U 14 + LFRB 11 = 35
+cube 3 diagonal 5: D 10 + U 10 + LFRB 16 = 36
+cube 3 corners: 10
+cube 3 wing 2: 4 wings 20 + 4 wings 22 + 5 wings 40 + 11 wings 42 = 124
+cube 3 wing 3: 4 wings 31 + 4 wings 25 + 5 wings 32 + 11 wings 32 = 120
+cube 3 wing 4: 4 wings 26 + 4 wings 31 + 5 wings 24 + 11 wings 39 = 120
+cube 3 wing 5: 4 wings 19 + 4 wings 31 + 5 wings 32 + 11 wings 35 = 117
+cube 3 solved: obliques 392 + mids 0 + diagonals 133 + corners 10 + wings 481 = 1016 moves (bound 1273)
+cube 4 pair (1,2): 1ud 11 + 2ud 16 + 3ax 17 + 4op 17 = 61
+cube 4 pair (1,3): 1ud 15 + 2ud 17 + 3ax 18 + 4op 17 = 67
+cube 4 pair (1,4): 1ud 14 + 2ud 17 + 3ax 18 + 4op 18 = 67
+cube 4 pair (2,3): 1ud 15 + 2ud 16 + 3ax 20 + 4op 19 = 70
+cube 4 pair (2,4): 1ud 13 + 2ud 17 + 3ax 18 + 4op 18 = 66
+cube 4 pair (3,4): 1ud 12 + 2ud 16 + 3ax 19 + 4op 20 = 67
+cube 4 diagonal 2: D 7 + U 15 + LFRB 17 = 39
+cube 4 diagonal 3: D 10 + U 8 + LFRB 14 = 32
+cube 4 diagonal 4: D 7 + U 13 + LFRB 15 = 35
+cube 4 diagonal 5: D 10 + U 8 + LFRB 14 = 32
+cube 4 corners: 10
+cube 4 wing 2: 4 wings 23 + 4 wings 22 + 5 wings 24 + 11 wings 32 = 101
+cube 4 wing 3: 4 wings 29 + 4 wings 24 + 5 wings 32 + 11 wings 40 = 125
+cube 4 wing 4: 4 wings 20 + 4 wings 27 + 5 wings 16 + 11 wings 34 = 97
+cube 4 wing 5: 4 wings 20 + 4 wings 27 + 5 wings 24 + 11 wings 34 = 105
+cube 4 solved: obliques 398 + mids 0 + diagonals 138 + corners 10 + wings 428 = 974 moves (bound 1273)
+cube 5 pair (1,2): 1ud 12 + 2ud 13 + 3ax 20 + 4op 14 = 59
+cube 5 pair (1,3): 1ud 16 + 2ud 17 + 3ax 17 + 4op 20 = 70
+cube 5 pair (1,4): 1ud 14 + 2ud 17 + 3ax 15 + 4op 20 = 66
+cube 5 pair (2,3): 1ud 15 + 2ud 16 + 3ax 18 + 4op 20 = 69
+cube 5 pair (2,4): 1ud 15 + 2ud 16 + 3ax 17 + 4op 20 = 68
+cube 5 pair (3,4): 1ud 10 + 2ud 17 + 3ax 17 + 4op 20 = 64
+cube 5 diagonal 2: D 5 + U 13 + LFRB 17 = 35
+cube 5 diagonal 3: D 7 + U 13 + LFRB 13 = 33
+cube 5 diagonal 4: D 8 + U 9 + LFRB 15 = 32
+cube 5 diagonal 5: D 10 + U 14 + LFRB 14 = 38
+cube 5 corners: 8
+cube 5 wing 2: 4 wings 22 + 4 wings 27 + 5 wings 24 + 11 wings 26 = 99
+cube 5 wing 3: 4 wings 24 + 4 wings 20 + 5 wings 32 + 11 wings 42 = 118
+cube 5 wing 4: 4 wings 23 + 4 wings 16 + 5 wings 32 + 11 wings 47 = 118
+cube 5 wing 5: 4 wings 22 + 4 wings 27 + 5 wings 32 + 11 wings 40 = 121
+cube 5 solved: obliques 396 + mids 0 + diagonals 138 + corners 8 + wings 456 = 998 moves (bound 1273)
+pairs solved 30, worst 70, mean 65.50
+totals: 58:1 59:1 61:1 63:6 64:1 65:2 66:3 67:9 68:2 69:2 70:2
+cubes solved 5, most moves 1032, bound 1273
+over a bound: 0 (610s)

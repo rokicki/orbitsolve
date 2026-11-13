@@ -1,0 +1,24 @@
+# load: load averages: 2.51 2.36 2.57
+# ./certsolve 100 --timing --seed 100 --bound --ud 35 --ax 44
+# seed 100
+# N=100: 1176 oblique pairs; mode boundary choice
+# bounds: 1ud + 2ud <= 35, 3ax + 4op <= 44; actions of at most 10 moves, slack 6, deep 6 (second action at most 8)
+# per orbit: oblique pair 79, mid 0, diagonal 44, wing 162; corners 11; 0 mid, 49 diagonal, 49 wing orbits; whole-cube bound 103009
+cube 1 solved: obliques 76801 + mids 0 + diagonals 1770 + corners 10 + wings 5910 = 84491 moves (bound 103009)
+# timing oblique tables (load/rebuild)           1.574 s     18.641 G instr      5.708 G cycles  IPC  3.27
+# timing boundary actions (build)               20.014 s    222.215 G instr     72.751 G cycles  IPC  3.05
+# timing mid/diagonal/wing/corner tables         0.687 s     29.659 G instr     10.469 G cycles  IPC  2.83
+# timing phase 1 (1ud + 2ud), all pairs          0.044 s      0.234 G instr      0.060 G cycles  IPC  3.90
+# timing   1ud + 2ud, not searched: 1176 pairs; per pair mean 0.038 ms, 0.20 M instr, 0.05 M cycles; cycles median 0.05 M, 90% 0.06 M, 99% 0.08 M, max 0.27 M
+# timing   1ud + 2ud, searched: 0 pairs
+# timing phase 2 (3ax + 4op), all pairs          0.035 s      0.255 G instr      0.050 G cycles  IPC  5.09
+# timing   3ax + 4op, not searched: 1176 pairs; per pair mean 0.030 ms, 0.22 M instr, 0.04 M cycles; cycles median 0.04 M, 90% 0.05 M, 99% 0.06 M, max 0.13 M
+# timing   3ax + 4op, searched: 0 pairs
+# timing rest of the cube (solve)                0.065 s      0.162 G instr      0.111 G cycles  IPC  1.45
+# timing total                                  22.424 s    271.186 G instr     89.156 G cycles  IPC  3.04
+pairs solved 1176, worst 75, mean 65.31
+totals: 52:1 56:5 57:8 58:23 59:25 60:49 61:49 62:69 63:94 64:123 65:153 66:132 67:131 68:117 69:75 70:60 71:37 72:17 73:6 74:1 75:1
+pairs searched (table lines over the budget): 1ud + 2ud 0, 3ax + 4op 0, of 1176
+cubes solved 1, most moves 84491, bound 103009
+over a bound: 0 (22s)
+# exit 0

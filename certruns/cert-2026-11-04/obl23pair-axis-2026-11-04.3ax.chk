@@ -1,0 +1,54 @@
+# devtools/axcheck 3ax /var/tmp/orbitsolve/certbuild/obl23pair-axis-2026-11-04/stages/3ax
+stage 3ax: 21 length files
+16 cube symmetries keep the stage
+  l00: 1 lines, longest 0 (0s)
+  l04: 4 lines, longest 4 (0s)
+  l05: 22 lines, longest 5 (0s)
+  l06: 58 lines, longest 6 (0s)
+  l07: 101 lines, longest 7 (0s)
+  l08: 506 lines, longest 8 (0s)
+  l09: 2022 lines, longest 9 (0s)
+  l10: 8088 lines, longest 10 (0s)
+  l11: 24726 lines, longest 11 (0s)
+  l12: 77071 lines, longest 12 (0s)
+  l13: 225254 lines, longest 13 (0s)
+  l14: 444068 lines, longest 14 (1s)
+  l15: 829220 lines, longest 15 (2s)
+  l16: 1492054 lines, longest 16 (3s)
+  l17: 2191771 lines, longest 17 (6s)
+  l18: 2363691 lines, longest 18 (9s)
+  l19: 1633820 lines, longest 19 (11s)
+  l20: 828636 lines, longest 20 (12s)
+  l21: 208902 lines, longest 21 (12s)
+  l22: 35720 lines, longest 22 (12s)
+  l23: 549 lines, longest 23 (12s)
+lines: 10366284, 0 bad, 0 longer than their file, 0 not a stage start; longest 23 (12s)
+side effects on 6x6x6: 0 move another centre off its colour; 3692562 change diagonal colours (allowed)
+side effects on 7x7x7: 0 move another centre off its colour; 3692562 change diagonal colours (allowed)
+side effects on 8x8x8: 0 move another centre off its colour; 3692562 change diagonal colours (allowed)
+side effects on 9x9x9: 0 move another centre off its colour; 3692562 change diagonal colours (allowed)
+side effects on 10x10x10: 0 move another centre off its colour; 3692562 change diagonal colours (allowed)
+classes: 10366284 distinct, 0 lines repeat a class (13s)
+coverage: 165636900 stage starts in 10366284 classes, 0 not covered; 10366284 classes listed (15s)
+  l00: 1 lines, longest 0
+  l04: 4 lines, longest 4
+  l05: 22 lines, longest 5
+  l06: 58 lines, longest 6
+  l07: 101 lines, longest 7
+  l08: 506 lines, longest 8
+  l09: 2022 lines, longest 9
+  l10: 8088 lines, longest 10
+  l11: 24726 lines, longest 11
+  l12: 77071 lines, longest 12
+  l13: 225254 lines, longest 13
+  l14: 444068 lines, longest 14
+  l15: 829220 lines, longest 15
+  l16: 1492054 lines, longest 16
+  l17: 2191771 lines, longest 17
+  l18: 2363691 lines, longest 18
+  l19: 1633820 lines, longest 19
+  l20: 828636 lines, longest 20
+  l21: 208902 lines, longest 21
+  l22: 35720 lines, longest 22
+  l23: 549 lines, longest 23
+PASS: every 3ax stage start is solved in at most 23 moves (15s)

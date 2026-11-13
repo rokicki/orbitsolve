@@ -1,0 +1,352 @@
+// certcheck: verify a chiral oblique pair stage certificate (written by orbitbound CERT=...).
+//
+// A certificate file lists, for one stage, a colouring of the 48 pair facelets and a move
+// sequence per line.  The stage keeps the groups "solved:" colour-solved and solves the groups
+// "target:" (a group = one orbit's four pieces of one face colour; orbit a = the (2,3) facelets
+// in 1-based rows and columns, orbit b = (3,2)).  This program uses nothing from the solver:
+// its cube, moves and symmetries come from certcube.h (plain 3D geometry).  It checks:
+//   1. every line: the colouring is a stage state, and its sequence (single-layer turns of depth
+//      at most 3) leaves every solved and target group colour-solved on 8x8x8; the longest
+//      sequence is at most "maxlen:";
+//   2. coverage: every stage state (all placements of the target colours on the free facelets)
+//      has an image under a cube symmetry that keeps the solved and target groups that is listed
+//      (the symmetric image of the listed sequence then solves it in as many moves);
+//   3. side effects, on N = 6..10: every centre facelet outside the pair and the diagonals
+//      keeps its colour; the report counts sequences that leave all of them exactly in place
+//      ("pure"), and those that change the colours of the diagonal (X) centres.
+//
+//   certcheck FILE.txt [--threads T] [--nocover]   (--nocover: skip 2, for a partial list)
+#include "certcube.h"
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <cstring>
+#include <map>
+#include <mutex>
+#include <thread>
+#include <unordered_set>
+
+typedef unsigned __int128 u128;
+static double now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+
+struct KH { size_t operator()(u128 k) const { uint64_t a = (uint64_t)k, b = (uint64_t)(k >> 64); return (a ^ (b * 0x9E3779B97F4A7C15ULL)) * 0xBF58476D1CE4E5B9ULL; } };
+
+int main(int argc, char **argv) {
+  printf("#");
+  for (int i = 0; i < argc; i++) printf(" %s", argv[i]);
+  printf("\n");
+  int threads = std::max(1u, std::thread::hardware_concurrency());
+  bool cover = true;
+  std::vector<std::string> pos;
+  for (int i = 1; i < argc; i++) {
+    std::string o = argv[i];
+    if (o == "--threads" && i + 1 < argc) threads = atoi(argv[++i]);
+    else if (o == "--nocover") cover = false;
+    else if (o[0] == '-') { fprintf(stderr, "unknown option %s\n", o.c_str()); return 1; }
+    else pos.push_back(o);
+  }
+  if (pos.size() != 1) { fprintf(stderr, "usage: certcheck FILE.txt [--threads T] [--nocover]\n"); return 1; }
+  const double t0 = now();
+  // the 48 pair facelets on 8^3 and the moves on them (depth 1..3; dst form)
+  cc::Cube C8(8);
+  const auto pf = cc::pairFacelets(C8);
+  std::vector<int> fidx(C8.pos.size(), -1);
+  for (int k = 0; k < 48; k++) fidx[pf[k]] = k;
+  int mp[6][4][4][48];  // [face][depth][amount][k]
+  for (int f = 0; f < 6; f++)
+    for (int d = 1; d <= 3; d++)
+      for (int a = 1; a <= 3; a++)
+        for (int k = 0; k < 48; k++) {
+          int i = pf[k];
+          for (int q = 0; q < a; q++) i = C8.perms[f][d - 1][i];
+          if (fidx[i] < 0) { fprintf(stderr, "a move takes a pair facelet off the pair\n"); return 1; }
+          mp[f][d][a][k] = fidx[i];
+        }
+  auto groupOf = [](int k) { return (k % 8) / 4 * 6 + k / 8; };  // orbit * 6 + face
+  // header
+  FILE *in = fopen(pos[0].c_str(), "r");
+  if (!in) { fprintf(stderr, "cannot open the certificate\n"); return 1; }
+  int S = -1, T = -1, maxlen = -1;
+  long entriesClaimed = -1;
+  auto groups = [](const std::string &s) {
+    if (s == "-") return 0;
+    int m = 0;
+    for (size_t i = 0; i + 1 < s.size(); i += 2) {
+      const int o = s[i] == 'a' ? 0 : s[i] == 'b' ? 1 : -1;
+      const char *p = strchr(cc::FACES, s[i + 1]);
+      if (o < 0 || !p || !*p) return -1;
+      m |= 1 << (o * 6 + (p - cc::FACES));
+    }
+    return s.size() % 2 ? -1 : m;
+  };
+  std::vector<std::string> lines;
+  {
+    char buf[4096];
+    while (fgets(buf, sizeof buf, in)) {
+      std::string l(buf);
+      while (!l.empty() && (l.back() == '\n' || l.back() == '\r')) l.pop_back();
+      if (l.empty() || l[0] == '#') continue;
+      if (l.rfind("solved: ", 0) == 0) S = groups(l.substr(8));
+      else if (l.rfind("target: ", 0) == 0) T = groups(l.substr(8));
+      else if (l.rfind("maxlen: ", 0) == 0) maxlen = atoi(l.c_str() + 8);
+      else if (l.rfind("entries: ", 0) == 0) entriesClaimed = atol(l.c_str() + 9);
+      else lines.push_back(l);
+    }
+    fclose(in);
+  }
+  if (S < 0 || T <= 0 || (S & T) || maxlen < 0) { fprintf(stderr, "bad or missing header (solved:, target:, maxlen:)\n"); return 1; }
+  std::vector<int> tg;  // target groups
+  for (int g = 0; g < 12; g++) if (T >> g & 1) tg.push_back(g);
+  std::vector<int> freeK;  // facelets not in solved groups
+  for (int k = 0; k < 48; k++) if (!(S >> groupOf(k) & 1)) freeK.push_back(k);
+  const int nf = freeK.size(), base = tg.size() + 1;
+  std::vector<int> slotOf(48, -1);
+  for (int i = 0; i < nf; i++) slotOf[freeK[i]] = i;
+  // a colouring: per facelet the group of its piece, -1 untracked; key: base-(|T|+1) digits over the free facelets
+  auto keyOf = [&](const int8_t *col) {
+    u128 k = 0;
+    for (int i = 0; i < nf; i++) {
+      const int g = col[freeK[i]];
+      int dgt = 0;
+      if (g >= 0) dgt = std::find(tg.begin(), tg.end(), g) - tg.begin() + 1;
+      k = k * base + dgt;
+    }
+    return k;
+  };
+  printf("stage: solved %d groups, target %zu groups, %d free facelets; %zu lines\n", __builtin_popcount(S), tg.size(), nf, lines.size());
+  if (entriesClaimed >= 0 && entriesClaimed != (long)lines.size()) { printf("FAIL: entries: says %ld, file has %zu\n", entriesClaimed, lines.size()); return 1; }
+  // 1. every line
+  std::vector<u128> keys(lines.size());
+  std::vector<std::vector<cc::Mv>> seqs(lines.size());
+  std::atomic<long> badLine{0}, badState{0}, notSolved{0}, tooLong{0};
+  std::atomic<int> longest{0};
+  std::vector<std::array<long, 64>> lenH(threads);
+  for (auto &h : lenH) h.fill(0);
+  {
+    std::atomic<size_t> ni{0};
+    std::mutex em;
+    auto w = [&](int tid) {
+      for (size_t li; (li = ni++) < lines.size();) {
+        const std::string &l = lines[li];
+        auto fail = [&](std::atomic<long> &cnt, const char *why) {
+          if (cnt++ < 5) { std::lock_guard<std::mutex> g(em); printf("  %s: %s\n", why, l.c_str()); }
+        };
+        if (l.size() < 48 || (l.size() > 48 && l[48] != ' ')) { fail(badLine, "bad line"); continue; }
+        int8_t col[48];
+        bool ok = true;
+        int cnt[12] = {0};
+        for (int k = 0; k < 48 && ok; k++) {
+          const char ch = l[k];
+          const int g = groupOf(k), o = g / 6;
+          if (S >> g & 1) { ok = ch == cc::FACES[g % 6]; col[k] = g; continue; }
+          if (ch == '-') { col[k] = -1; continue; }
+          const char *p = strchr(cc::FACES, ch);
+          if (!p || !*p) { ok = false; break; }
+          const int pg = o * 6 + (p - cc::FACES);
+          ok = (T >> pg & 1) != 0;
+          col[k] = pg;
+          cnt[pg]++;
+        }
+        for (int g : tg) ok &= cnt[g] == 4;
+        if (!ok) { fail(badState, "not a stage state"); continue; }
+        std::vector<cc::Mv> mv;
+        if (!cc::parseMoves(l.substr(48), mv)) { fail(badLine, "bad moves"); continue; }
+        for (auto &m : mv) ok &= m.depth >= 1 && m.depth <= 3;
+        if (!ok) { fail(badLine, "a move deeper than 3"); continue; }
+        int8_t a[48], b[48];
+        memcpy(a, col, 48);
+        for (auto &m : mv) {
+          for (int k = 0; k < 48; k++) b[mp[m.face][m.depth][m.amt][k]] = a[k];
+          memcpy(a, b, 48);
+        }
+        for (int k = 0; k < 48 && ok; k++) if ((S | T) >> groupOf(k) & 1) ok = a[k] == groupOf(k);
+        if (!ok) { fail(notSolved, "sequence does not solve the stage"); continue; }
+        if ((int)mv.size() > maxlen) fail(tooLong, "longer than maxlen");
+        int cur = longest.load();
+        while ((int)mv.size() > cur && !longest.compare_exchange_weak(cur, mv.size())) {}
+        lenH[tid][std::min<size_t>(63, mv.size())]++;
+        keys[li] = keyOf(col);
+        seqs[li] = std::move(mv);
+      }
+    };
+    std::vector<std::thread> th;
+    for (int t = 0; t < threads; t++) th.emplace_back(w, t);
+    for (auto &t : th) t.join();
+  }
+  std::array<long, 64> lh{};
+  for (auto &h : lenH) for (int i = 0; i < 64; i++) lh[i] += h[i];
+  printf("lines: %ld bad, %ld not stage states, %ld not solved, %ld over maxlen %d; longest %d; lengths:", badLine.load(), badState.load(), notSolved.load(), tooLong.load(), maxlen, longest.load());
+  for (int i = 0; i < 64; i++) if (lh[i]) printf(" %d:%ld", i, lh[i]);
+  printf(" (%.0fs)\n", now() - t0);
+  fflush(stdout);
+  const bool linesOk = !badLine && !badState && !notSolved && !tooLong;
+  // 2. coverage
+  std::unordered_set<u128, KH> have;
+  have.reserve(lines.size() * 2);
+  long dup = 0;
+  for (auto k : keys) dup += !have.insert(k).second;
+  // cube symmetries: signed permutation matrices on doubled centred coordinates
+  struct Sym { int fac[48]; int gmap[12]; };
+  std::vector<Sym> syms;
+  {
+    const int pm[6][3] = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}};
+    for (int pi = 0; pi < 6; pi++)
+      for (int sg = 0; sg < 8; sg++) {
+        Sym y;
+        bool ok = true;
+        for (int k = 0; k < 48 && ok; k++) {
+          const auto &p = C8.pos[pf[k]];
+          std::array<int, 3> q;
+          for (int r = 0; r < 3; r++) q[r] = p[pm[pi][r]] * ((sg >> r & 1) ? -1 : 1);
+          int j = -1;
+          for (int x = 0; x < 48; x++) if (C8.pos[pf[x]] == q) j = x;
+          ok = j >= 0;
+          y.fac[k] = j;
+        }
+        if (!ok) { fprintf(stderr, "a symmetry leaves the pair\n"); return 1; }
+        // group map: the image of a group's four facelets must be one group
+        for (int g = 0; g < 12; g++) {
+          int img = -1;
+          for (int k = 0; k < 48; k++)
+            if (groupOf(k) == g) {
+              const int h = groupOf(y.fac[k]);
+              if (img >= 0 && img != h) ok = false;
+              img = h;
+            }
+          y.gmap[g] = img;
+        }
+        if (!ok) { fprintf(stderr, "a symmetry splits a group\n"); return 1; }
+        int s2 = 0, t2 = 0;
+        for (int g = 0; g < 12; g++) { if (S >> g & 1) s2 |= 1 << y.gmap[g]; if (T >> g & 1) t2 |= 1 << y.gmap[g]; }
+        if (s2 == S && t2 == T) syms.push_back(y);
+      }
+  }
+  printf("coverage: %zu distinct listed states (%ld duplicates), %zu cube symmetries keep the stage\n", have.size(), dup, syms.size());
+  fflush(stdout);
+  // enumerate: the target groups in order, each choosing 4 of the free facelets of its orbit still empty
+  std::vector<std::vector<int>> orbitFree(2);
+  for (int k : freeK) orbitFree[(k % 8) / 4].push_back(k);
+  // first target group's placements split over threads
+  std::vector<std::array<int, 4>> firstChoices;
+  {
+    const auto &v = orbitFree[tg[0] / 6];
+    const int n = v.size();
+    for (int a = 0; a < n; a++) for (int b = a + 1; b < n; b++) for (int c = b + 1; c < n; c++) for (int d = c + 1; d < n; d++) firstChoices.push_back({v[a], v[b], v[c], v[d]});
+  }
+  std::atomic<size_t> nci{0};
+  std::atomic<long> states{0}, missing{0};
+  std::mutex em;
+  auto cw = [&] {
+    int8_t col[48], img[48];
+    long st = 0, ms = 0;
+    std::function<void(size_t)> rec = [&](size_t gi) {
+      if (gi == tg.size()) {
+        st++;
+        bool found = have.count(keyOf(col)) > 0;
+        for (size_t s = 0; s < syms.size() && !found; s++) {
+          const Sym &y = syms[s];
+          for (int k = 0; k < 48; k++) img[y.fac[k]] = col[k] < 0 ? -1 : y.gmap[col[k]];
+          found = have.count(keyOf(img)) > 0;
+        }
+        if (!found && ms++ < 5) {
+          std::string t;
+          for (int k = 0; k < 48; k++) t += col[k] < 0 ? '-' : cc::FACES[col[k] % 6];
+          std::lock_guard<std::mutex> g(em);
+          printf("  not covered: %s\n", t.c_str());
+        }
+        return;
+      }
+      const auto &v = orbitFree[tg[gi] / 6];
+      const int n = v.size();
+      std::function<void(int, int)> pick = [&](int from, int depth) {
+        if (depth == 4) { rec(gi + 1); return; }
+        for (int i = from; i < n; i++) {
+          if (col[v[i]] != -1) continue;
+          col[v[i]] = tg[gi];
+          pick(i + 1, depth + 1);
+          col[v[i]] = -1;
+        }
+      };
+      pick(0, 0);
+    };
+    for (size_t ci; (ci = nci++) < firstChoices.size();) {
+      for (int k = 0; k < 48; k++) col[k] = (S >> groupOf(k) & 1) ? groupOf(k) : -1;
+      for (int x : firstChoices[ci]) col[x] = tg[0];
+      rec(1);
+    }
+    states += st, missing += ms;
+  };
+  if (cover) {
+    std::vector<std::thread> th;
+    for (int t = 0; t < threads; t++) th.emplace_back(cw);
+    for (auto &t : th) t.join();
+    printf("coverage: %ld stage states, %ld not covered (%.0fs)\n", states.load(), missing.load(), now() - t0);
+  } else printf("coverage: not checked (--nocover)\n");
+  fflush(stdout);
+  // 3. side effects on N = 6..10
+  long sideBad = 0;
+  for (int N = 6; N <= 10; N++) {
+    cc::Cube CN(N);
+    const int M = N - 1;
+    // centre facelets: rows and columns 1..N-2; pair = the (1,2)/(2,1) family; diagonal: r == c or r + c == N-1
+    std::vector<char> kind(CN.pos.size(), 0);  // 0 not a centre, 1 pair, 2 diagonal, 3 other centre
+    for (int f = 0; f < 6; f++)
+      for (int r = 1; r < M; r++)
+        for (int c = 1; c < M; c++) {
+          auto inPair = [&](int rr, int cc2) {
+            int x = 1, y = 2;
+            for (int q = 0; q < 4; q++) { if ((rr == x && cc2 == y)) return true; const int nx = y, ny = M - x; x = nx, y = ny; }
+            x = 2, y = 1;
+            for (int q = 0; q < 4; q++) { if ((rr == x && cc2 == y)) return true; const int nx = y, ny = M - x; x = nx, y = ny; }
+            return false;
+          };
+          kind[CN.index(f, r, c)] = inPair(r, c) ? 1 : (r == c || r + c == M) ? 2 : 3;
+        }
+    // per move: the cycles of centre facelets (sparse)
+    std::vector<std::vector<std::pair<int, int>>> mvMap(6 * 4 * 4);
+    for (int f = 0; f < 6; f++)
+      for (int d = 1; d <= 3; d++)
+        for (int a = 1; a <= 3; a++)
+          for (size_t i = 0; i < CN.pos.size(); i++) {
+            if (!kind[i]) continue;
+            int j = i;
+            for (int q = 0; q < a; q++) j = CN.perms[f][d - 1][j];
+            if (j != (int)i) mvMap[(f * 4 + d) * 4 + a].push_back({(int)i, j});
+          }
+    std::atomic<size_t> ni{0};
+    std::atomic<long> colourBad{0}, impure{0}, diagMoved{0};
+    auto w = [&] {
+      std::vector<int> a(CN.pos.size()), b;
+      long cb = 0, ip = 0, dm = 0;
+      for (size_t li; (li = ni++) < seqs.size();) {
+        if (seqs[li].empty() && lines[li].size() > 48) continue;  // a failed line
+        for (size_t i = 0; i < a.size(); i++) a[i] = i;
+        for (auto &m : seqs[li]) {
+          const auto &mm = mvMap[(m.face * 4 + m.depth) * 4 + m.amt];
+          b = a;
+          for (auto &[i, j] : mm) b[j] = a[i];
+          a.swap(b);
+        }
+        bool colOk = true, pure = true, diag = false;
+        for (size_t i = 0; i < a.size(); i++) {
+          if (kind[i] == 3) { colOk &= CN.faceOf[a[i]] == CN.faceOf[i]; pure &= a[i] == (int)i; }
+          else if (kind[i] == 2) diag |= CN.faceOf[a[i]] != CN.faceOf[i];
+        }
+        cb += !colOk, ip += colOk && !pure, dm += diag;
+      }
+      colourBad += cb, impure += ip, diagMoved += dm;
+    };
+    std::vector<std::thread> th;
+    for (int t = 0; t < threads; t++) th.emplace_back(w);
+    for (auto &t : th) t.join();
+    printf("side effects on %dx%dx%d: %ld sequences move another centre off its colour, %ld keep colours but move other centre pieces (not pure), %ld pure; %ld change diagonal colours (%.0fs)\n",
+           N, N, N, colourBad.load(), impure.load(), (long)seqs.size() - colourBad.load() - impure.load(), diagMoved.load(), now() - t0);
+    fflush(stdout);
+    sideBad += colourBad;
+  }
+  const bool ok = linesOk && !missing && !sideBad;
+  if (cover) printf("%s: every state of this stage is solved in at most %d moves\n", ok ? "PASS" : "FAIL", longest.load());
+  else printf("%s: every listed state is solved by its sequence in at most %d moves\n", ok ? "PASS" : "FAIL", longest.load());
+  return ok ? 0 : 1;
+}

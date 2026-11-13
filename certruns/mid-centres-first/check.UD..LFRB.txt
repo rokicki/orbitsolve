@@ -1,0 +1,33 @@
+# ./midcheck SCRATCH/certM/stages/UD..LFRB
+stage UD..LFRB: 2 solved groups kept, 4 target groups; 17 segment files
+lines: 3957199, 0 bad, 0 in the wrong segment; longest 21; lengths: 0:1 4:5 5:19 6:67 7:163 8:495 9:1952 10:6468 11:23225 12:69551 13:170185 14:376850 15:753717 16:1090100 17:966445 18:431817 19:63290 20:2805 21:44 (2s)
+classes: 3957199 distinct positions, 0 lines repeat a class already listed; 16 cube symmetries keep the stage
+  w00: 1 lines, longest 0, 1 stage states, 0 not covered
+  w02: 12 lines, longest 7, 96 stage states, 0 not covered
+  w03: 36 lines, longest 8, 512 stage states, 0 not covered
+  w04: 366 lines, longest 12, 4824 stage states, 0 not covered
+  w05: 1620 lines, longest 13, 25344 stage states, 0 not covered
+  w06: 7923 lines, longest 15, 122016 stage states, 0 not covered
+  w07: 28512 lines, longest 16, 453888 stage states, 0 not covered
+  w08: 88244 lines, longest 17, 1395126 stage states, 0 not covered
+  w09: 216622 lines, longest 17, 3458432 stage states, 0 not covered
+  w10: 435511 lines, longest 18, 6928704 stage states, 0 not covered
+  w11: 691242 lines, longest 19, 11042688 stage states, 0 not covered
+  w12: 862001 lines, longest 20, 13731616 stage states, 0 not covered
+  w13: 806346 lines, longest 20, 12880512 stage states, 0 not covered
+  w14: 541184 lines, longest 20, 8607744 stage states, 0 not covered
+  w15: 229662 lines, longest 21, 3662976 stage states, 0 not covered
+  w16: 47917 lines, longest 21, 748521 stage states, 0 not covered
+coverage checked (63s)
+side effects on 5x5x5, mid depth 2: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 0 keep colours but move other centre pieces (not pure), 3957199 pure; 0 change diagonal colours
+side effects on 7x7x7, mid depth 2: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+side effects on 7x7x7, mid depth 3: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+side effects on 9x9x9, mid depth 2: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+side effects on 9x9x9, mid depth 3: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+side effects on 9x9x9, mid depth 4: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+side effects on 11x11x11, mid depth 2: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+side effects on 11x11x11, mid depth 3: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+side effects on 11x11x11, mid depth 4: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+side effects on 11x11x11, mid depth 5: 0 move another centre off its colour, 0 move the mid orbit unlike the reference, 3843313 keep colours but move other centre pieces (not pure), 113886 pure; 0 change diagonal colours
+PASS: every stage state in these segments is solved in at most 21 moves (86s)
+       86.33 real       458.25 user         2.94 sys

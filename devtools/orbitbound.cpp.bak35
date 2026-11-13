@@ -1,0 +1,2228 @@
+// Upper bound on the moves needed to solve centre orbits with algorithms that
+// change nothing but those orbits.  Positions come in groups of four (a group
+// is one colour on one orbit: diag/mid/single have 6 groups, pair has 12, two
+// orbits of 6).  Same-coloured pieces are interchangeable.
+//
+// Staged: a stage takes a set S of solved groups and solves a further set T,
+// using only algorithms that keep every group of S solved (they may permute
+// within a group).  The stage state gives, for every unsolved position, which
+// group of T its piece belongs to, or "other".  Dijkstra from the goal (the
+// pools are closed under inversion) with each algorithm costing its move count
+// gives M(S, T), the exact worst case of the stage over all its states; no
+// cancellation between consecutive algorithms is counted, so the result is an
+// upper bound.  Then B(S) = min over T of M(S, T) + B(S + T), with B = 0 once
+// at most one group per orbit is left, and B(empty) bounds the whole problem.
+//
+// Per stage, algorithms are first reduced to their action on the unsolved
+// positions (cheapest kept per action), and an action is dropped when it is a
+// cheapest-cost composition of a short algorithm (cost <= --short) and another
+// algorithm of the set: Dijkstra then reaches every state at the same distance.
+//
+//   orbitbound [options] diag|mid|single|free|pair POOL.cls...   (run from dist/gullicube)
+//     single: one oblique orbit; pair algorithms that keep the partner orbit
+//             solved (colour-preserving), restricted to the first orbit
+//     free:   one oblique orbit, the partner orbit may end up anything (with
+//             single, a pair bound: free for one orbit, then single for the other)
+//     --maxstates N   largest stage state space computed (default 1e8)
+//     --maxcost C     ignore algorithms costing more than C
+//     --short C       composition pruning uses algorithms up to this cost (default 6)
+//     --plan T1,T2,..  instead of searching stage orders, evaluate this one: each Ti is
+//                     the groups solved by stage i (U..D; pair: aU..aD, bU..bD), e.g. aDbD,aUbU,...
+//     --diagok        single/free/pair: also use algorithms that move the diagonal orbit
+//                     (pools flag them D1); valid when the diagonals are solved afterwards
+//     --worst FILE    write every position at each stage's worst distance (if at most
+//                     1e6): "SOLVED SOLVE DIST COLOURS", COLOURS one letter per position,
+//                     group g as 'A'+g (pair: 'A'..'L'), '.' = not tracked by the stage
+//     --merge         count cancellation between consecutive algorithms within a stage:
+//                     per state the set of last moves of its cheapest paths; the next
+//                     algorithm's first move cancels (-2) or merges (-1) with one of them
+//     --refine        after a stage, band refinement: for every position in the top levels
+//                     (as many as fit --refinework), dist = min(dist, cost(A) + dist(A(x)))
+//                     over every usable algorithm A (no budget), repeated until nothing improves
+//     --refinework W  stop refining when worst positions x actions exceeds W (default 1e12)
+//     --fullwork W    source levels with (positions x all usable actions) <= W use every usable
+//                     action (no budget); default 2e11, 0 = off
+//     --faceturns     outer face turns as actions of cost 1 (no merges counted with them).
+//                     They keep every centre on its face, so this is valid when only centres
+//                     must be preserved (centres solved before edges and corners)
+//     --conjslice C   add X A X^-1 for every pool algorithm A of cost >= C and every move X,
+//                     slices included (single, free, pair; for pair only algorithms that keep
+//                     one orbit colour-solved, and so do the results); the support stays in A's
+//                     orbit, so X A X^-1 is as pure as A
+//     --conj K        add K rounds of conjugates X A X^-1 by every outer face turn X
+//     --stagebudget I:E  edge budget for stage I (0-based) of --plan
+//     --planstart G   with --plan: these groups are already solved (evaluate a plan's tail)
+//     --firstmin N    for a first stage (nothing solved): its bound when the stage may be applied
+//                     in any orientation (largest k with a colouring bad in every orientation);
+//                     gives up when more than N states are at distance >= k
+//     --boundary I    stages I and I+1 of --plan jointly: the carries of the cheapest stage-I
+//                     paths of each hard stage-I state must leave the next stage within X
+//                     (--boundarypaths N carries per state, --boundarystates N, --boundaryslack S)
+//                     (--eitherorder: where no carry works, also try the two stages in the mirrored
+//                     order, through a symmetry that swaps their targets, e.g. a ring <-> b ring)
+//                     (--boundarynodes N / --boundaryfullnodes N: DFS nodes per state and slack
+//                     with the short actions (200000) and with all actions (5000))
+//     POOL.cls@GROUPS  load only the images that keep GROUPS colour-solved (e.g. obl11.all.cls@UD)
+//     --budget E      per stage, drop the costliest algorithms while states x actions > E
+//                     (default 4e11; a subset still gives a valid bound if it reaches every state)
+#include "classpool.h"
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <cstring>
+#include <deque>
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <random>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+typedef unsigned __int128 u128;
+static double now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+
+struct Alg { std::vector<uint8_t> dst; int cost; uint8_t first = 0, last = 0; int32_t src = -1; };
+// EXAMPLE=I: where each algorithm came from (pool file, image, face turns stripped at the ends)
+struct Src { int file; uint32_t ref; uint8_t i, j; };  // file -1: the face turn ref = face*3 + amt-1
+static std::deque<ClassPool> pools;
+static std::vector<Src> srcs;
+static const OrbitModel *gModel = nullptr;
+static bool exampleOn = false;  // the piece at position s goes to dst[s]
+// --merge: moves of consecutive algorithms may cancel.  A move is coded
+// (face * 3 + layer - 1) * 3 + amount - 1 (54 codes; layer = real depth class:
+// for the diagonal the placeholders 2 and 3 are the same layer).
+static bool mergeMode = false;
+static uint64_t mergeSame0[55], mergeSame1[55];  // code 54: unknown move (after a full cancellation), never merges  // last moves that cancel with / merge into a first move
+
+static int P, G;                         // positions, groups
+static std::vector<Alg> algs;            // all algorithms on the P positions
+static std::vector<std::vector<int>> gmap;  // per symmetry: group -> group
+static int nthreads;
+static double maxStates = 1e8;
+static int shortCost = 6;
+static double edgeBudget = 4e11;
+static std::map<int, double> stageBudget;  // --stagebudget I:E, stage index in --plan
+static int curStage = -1;
+static FILE *worstFile = nullptr;
+static bool refineMode = false;
+static bool oldSearch = false;
+static bool noPrefetch = false;  // --noprefetch (for timing)  // --oldsearch: level-synchronous Dijkstra (for comparison)
+static uint64_t refineLimit = 2000000;
+static double refineWork = 1e12;
+static double fullWork = 2e11;  // --fullwork: per source level, positions x all actions
+static std::string fullInfo, symInfo;  // worst positions x actions per refine round
+static std::string refineLog;
+static uint64_t worstLimit = 1000000;
+static uint64_t firstMinCap = 0;
+static bool combineMode = false;  // --combine: first two stages jointly on the colourings bad in every orientation
+static int combK = -1;
+static size_t combCap = 20000;  // most colourings --combine handles
+static bool combTruncated = false;
+static int boundaryAt = -1;              // --boundary I: stages I and I+1 jointly
+static size_t boundaryPaths = 3000, boundaryStates = 200000;
+static int boundarySlack = 1;
+static bool eitherOrder = false;  // --eitherorder: the two boundary stages may also be done in the mirrored order
+static long boundaryNodes = 200000, boundaryFullNodes = 5000;  // DFS nodes per (state, slack): short actions / all actions
+static std::vector<std::vector<int8_t>> combCols;
+static uint64_t firstMinNodes = 2000000000;  // --firstmin N: orientation analysis of a first stage (bad-state cap)
+static std::mutex worstMu;
+static std::string gname(int mask);
+static int minAlgCost = 4;
+static uint64_t binom[65][6];
+
+static int orbitOf(int g) { return g / 6; }
+
+// Fast ranking (the user's suggestion): a stage state as base-k digits over the free positions
+// (one digit per position: which tracked colour, 0 = "other" or, without other, the first
+// colour), split into two half-words of at most 12 positions.  rank = offHigh[high] +
+// idxLow[low], where idxLow numbers each low half among those with the same digit counts and
+// offHigh accumulates the lows compatible with each high half: a bijection onto 0..total-1.
+// Tables are k^half entries (3^12 = 531,441 for U+D from scratch; 4^8 = 65,536 for four faces).
+struct FastRank {
+  int k, h0, h1, firstTracked;
+  std::vector<int> digitOf;          // tracked colour index -> digit
+  std::vector<uint32_t> Tk;          // 12-bit mask -> sum of k^i over its bits
+  std::vector<uint32_t> offHigh, idxLow;
+  std::vector<uint32_t> highs, highOff, highSig;
+  std::vector<std::vector<uint32_t>> lowsBySig;
+  std::vector<uint16_t> lowMask, highMask;  // [word * k + digit] -> positions holding that digit
+};
+static bool fastRankOn = true;
+// cube symmetries usable on the positions: group map, position relabelling, move-code map
+struct GSym { std::vector<int> gm; std::vector<int> sigma; int moveMap[55]; };
+static std::vector<GSym> gsyms;
+static bool symOn = true;
+static bool checkRefine = false;  // --checkrefine: verify every refined value has a witness  // --nosym: no symmetry reduction in the stage search
+
+struct Stage {
+  std::shared_ptr<FastRank> fr;
+  int S, T;                  // group masks
+  int n;                     // free positions
+  std::vector<int> pos;      // free position -> P position
+  std::vector<int> cidx;     // P position -> free index (-1 if solved)
+  std::vector<int> tg;       // groups of T in order
+  std::vector<uint64_t> orb; // per T colour: free positions of its orbit (mask over free indices)
+  std::vector<uint64_t> radix;
+  uint64_t total = 1;
+};
+
+static Stage makeStage(int S, int T) {
+  Stage st;
+  st.S = S, st.T = T;
+  st.cidx.assign(P, -1);
+  for (int p = 0; p < P; p++)
+    if (!(S >> (p / 4) & 1)) { st.cidx[p] = st.pos.size(); st.pos.push_back(p); }
+  st.n = st.pos.size();
+  for (int g = 0; g < G; g++)
+    if (T >> g & 1) {
+      st.tg.push_back(g);
+      uint64_t m = 0;
+      for (int i = 0; i < st.n; i++) if (st.pos[i] / 24 == orbitOf(g)) m |= 1ULL << i;
+      st.orb.push_back(m);
+    }
+  // radix: C(available, 4) per colour, available shrinking per orbit
+  std::map<int, int> used;
+  for (size_t c = 0; c < st.tg.size(); c++) {
+    int avail = __builtin_popcountll(st.orb[c]) - 4 * used[orbitOf(st.tg[c])]++;
+    st.radix.push_back(binom[avail][4]);
+    st.total *= binom[avail][4];
+  }
+  // fast ranking when the stage is one orbit of at most 24 free positions and the tables fit
+  bool oneOrbit = true;
+  for (size_t c = 0; c < st.orb.size(); c++) oneOrbit &= st.orb[c] == ((1ULL << st.n) - 1);
+  const int nt = st.tg.size(), other = st.n - 4 * nt;
+  const int k = nt + (other > 0 ? 1 : 0), h0 = st.n / 2, h1 = st.n - h0;
+  double tsz = 1;
+  for (int i = 0; i < h1; i++) tsz *= k;
+  if (fastRankOn && oneOrbit && st.n <= 24 && nt >= 1 && k >= 2 && k <= 6 && h1 <= 12 && tsz <= (1 << 22)) {
+    auto F = std::make_shared<FastRank>();
+    F->k = k, F->h0 = h0, F->h1 = h1;
+    F->firstTracked = other > 0 ? 0 : 1;
+    for (int c = 0; c < nt; c++) F->digitOf.push_back(other > 0 ? c + 1 : c);
+    std::vector<int> totals(k, 4);
+    if (other > 0) totals[0] = other;
+    std::vector<uint32_t> pw(13, 1);
+    for (int i = 1; i < 13; i++) pw[i] = pw[i - 1] * k;
+    F->Tk.assign(4096, 0);
+    for (int m = 0; m < 4096; m++) for (int i = 0; i < 12; i++) if (m >> i & 1) F->Tk[m] += pw[i];
+    auto sigKey = [&](const std::vector<int> &cnt) { int key = 0; for (int j = k - 1; j >= 0; j--) key = key * 13 + cnt[j]; return key; };
+    int nsig = 1;
+    for (int j = 0; j < k; j++) nsig *= 13;
+    F->lowsBySig.assign(nsig, {});
+    const uint32_t INV = 0xFFFFFFFFu;
+    F->idxLow.assign(pw[h0], INV);
+    F->lowMask.assign((size_t)pw[h0] * k, 0);
+    std::vector<int> cnt(k);
+    for (uint32_t l = 0; l < pw[h0]; l++) {
+      std::fill(cnt.begin(), cnt.end(), 0);
+      for (int i = 0, x = l; i < h0; i++, x /= k) { cnt[x % k]++; F->lowMask[(size_t)l * k + x % k] |= 1u << i; }
+      bool ok = true;
+      for (int j = 0; j < k; j++) ok &= cnt[j] <= totals[j];
+      if (!ok) continue;
+      auto &v = F->lowsBySig[sigKey(cnt)];
+      F->idxLow[l] = v.size();
+      v.push_back(l);
+    }
+    F->offHigh.assign(pw[h1], INV);
+    F->highMask.assign((size_t)pw[h1] * k, 0);
+    uint64_t run = 0;
+    for (uint32_t h = 0; h < pw[h1]; h++) {
+      std::fill(cnt.begin(), cnt.end(), 0);
+      for (int i = 0, x = h; i < h1; i++, x /= k) { cnt[x % k]++; F->highMask[(size_t)h * k + x % k] |= 1u << i; }
+      bool ok = true;
+      for (int j = 0; j < k; j++) { cnt[j] = totals[j] - cnt[j]; ok &= cnt[j] >= 0; }
+      if (!ok) continue;
+      const int key = sigKey(cnt);
+      if (F->lowsBySig[key].empty()) continue;
+      F->offHigh[h] = run;
+      F->highs.push_back(h), F->highOff.push_back(run), F->highSig.push_back(key);
+      run += F->lowsBySig[key].size();
+    }
+    if (run != st.total) { fprintf(stderr, "fast rank: %llu states, expected %llu\n", (unsigned long long)run, (unsigned long long)st.total); exit(1); }
+    st.fr = F;
+  }
+  return st;
+}
+
+// state as one mask (over free indices) per T colour
+static inline uint64_t rankOf(const Stage &st, const uint64_t *m) {
+  if (const FastRank *F = st.fr.get()) {
+    uint32_t lo = 0, hi = 0;
+    const uint64_t lm = (1u << F->h0) - 1;
+    for (size_t c = F->firstTracked; c < st.tg.size(); c++) {
+      lo += F->digitOf[c] * F->Tk[m[c] & lm];
+      hi += F->digitOf[c] * F->Tk[m[c] >> F->h0];
+    }
+    return (uint64_t)F->offHigh[hi] + F->idxLow[lo];
+  }
+  uint64_t r = 0;
+  for (size_t c = 0; c < st.tg.size(); c++) {
+    uint64_t avail = st.orb[c];
+    for (size_t e = 0; e < c; e++) if (st.orb[e] == st.orb[c]) avail &= ~m[e];
+    uint64_t sub = 0;
+    int k = 0;
+    for (uint64_t x = m[c]; x; x &= x - 1) {
+      int idx = __builtin_popcountll(avail & ((x & -x) - 1));
+      sub += binom[idx][++k];
+    }
+    r = r * st.radix[c] + sub;
+  }
+  return r;
+}
+static inline void unrank(const Stage &st, uint64_t r, uint64_t *m) {
+  if (const FastRank *F = st.fr.get()) {
+    const size_t i = std::upper_bound(F->highOff.begin(), F->highOff.end(), (uint32_t)r) - F->highOff.begin() - 1;
+    const uint32_t h = F->highs[i], l = F->lowsBySig[F->highSig[i]][r - F->highOff[i]];
+    for (size_t c = 0; c < st.tg.size(); c++)
+      m[c] = F->lowMask[(size_t)l * F->k + F->digitOf[c]] | (uint64_t)F->highMask[(size_t)h * F->k + F->digitOf[c]] << F->h0;
+    return;
+  }
+  const int nc = st.tg.size();
+  uint64_t sub[8];
+  for (int c = nc - 1; c >= 0; c--) { sub[c] = r % st.radix[c]; r /= st.radix[c]; }
+  for (int c = 0; c < nc; c++) {
+    uint64_t avail = st.orb[c];
+    for (int e = 0; e < c; e++) if (st.orb[e] == st.orb[c]) avail &= ~m[e];
+    int ai[64], na = 0;
+    for (uint64_t x = avail; x; x &= x - 1) ai[na++] = __builtin_ctzll(x);
+    // colex unrank of a 4-subset of {0..na-1}
+    uint64_t s = sub[c], mm = 0;
+    int hi = na;
+    for (int k = 4; k >= 1; k--) {
+      int v = k - 1;
+      while (v + 1 < hi && binom[v + 1][k] <= s) v++;
+      s -= binom[v][k];
+      mm |= 1ULL << ai[v];
+      hi = v;
+    }
+    m[c] = mm;
+  }
+}
+
+struct CAlg { std::vector<uint8_t> d; int cost; uint8_t first = 0, last = 0; };  // action on free indices
+
+struct Kept { Stage st; std::vector<uint8_t> dist; std::vector<CAlg> ca; int maxd; };
+static std::vector<Kept> kept;  // --combine: every stage's table and actions
+
+static std::vector<CAlg> stageAlgs(const Stage &st, long &usable) {
+  // usable algorithms, reduced to free positions, cheapest per action
+  struct H { size_t operator()(const std::vector<uint8_t> &v) const { size_t h = 1469598103934665603ULL; for (auto c : v) h = (h ^ c) * 1099511628211ULL; return h; } };
+  std::unordered_map<std::vector<uint8_t>, int, H> best;
+  usable = 0;
+  if (mergeMode) {
+    // per action on the free positions and (first, last) move: cheapest; keep entries at most one
+    // move above the action's cheapest (a merge saves at most 2 at the start)
+    std::unordered_map<std::vector<uint8_t>, int, H> key2cost, minc;
+    for (auto &a : algs) {
+      bool ok = true;
+      for (int p = 0; p < P && ok; p++) if (st.S >> (p / 4) & 1) ok = a.dst[p] / 4 == p / 4;
+      if (!ok) continue;
+      usable++;
+      std::vector<uint8_t> d(st.n + 2);
+      bool id = true;
+      for (int i = 0; i < st.n; i++) { d[i] = st.cidx[a.dst[st.pos[i]]]; id &= d[i] == i; }
+      if (id) continue;
+      d[st.n] = a.first, d[st.n + 1] = a.last;
+      auto it = key2cost.find(d);
+      if (it == key2cost.end()) key2cost.emplace(d, a.cost);
+      else it->second = std::min(it->second, a.cost);
+      d.resize(st.n);
+      auto jt = minc.find(d);
+      if (jt == minc.end()) minc.emplace(d, a.cost);
+      else jt->second = std::min(jt->second, a.cost);
+    }
+    std::vector<CAlg> r;
+    for (auto &kv : key2cost) {
+      std::vector<uint8_t> d(kv.first.begin(), kv.first.begin() + st.n);
+      if (kv.second > minc[d] + 1) continue;
+      r.push_back({d, kv.second, kv.first[st.n], kv.first[st.n + 1]});
+    }
+    std::sort(r.begin(), r.end(), [](const CAlg &a, const CAlg &b) { return a.cost < b.cost; });
+    return r;
+  }
+  for (auto &a : algs) {
+    bool ok = true;
+    for (int p = 0; p < P && ok; p++)
+      if (st.S >> (p / 4) & 1) ok = a.dst[p] / 4 == p / 4;
+    if (!ok) continue;
+    usable++;
+    std::vector<uint8_t> d(st.n);
+    for (int i = 0; i < st.n; i++) d[i] = st.cidx[a.dst[st.pos[i]]];
+    bool id = true;
+    for (int i = 0; i < st.n && id; i++) id = d[i] == i;
+    if (id) continue;
+    auto it = best.find(d);
+    if (it == best.end()) best.emplace(std::move(d), a.cost);
+    else it->second = std::min(it->second, a.cost);
+  }
+  // edge budget first (cheapest whole cost classes), so pruning works on what is kept
+  std::map<int, long> hist;
+  for (auto &kv : best) hist[kv.second]++;
+  int cap = 255;
+  long kept = best.size();
+  for (auto it = hist.rbegin(); it != hist.rend() && kept > it->second && (double)st.total * kept > (stageBudget.count(curStage) ? stageBudget[curStage] : edgeBudget); ++it) {
+    kept -= it->second;
+    cap = std::next(it) == hist.rend() ? cap : std::next(it)->first;
+  }
+  // composition pruning: A = C o B or B o C with B short and cost(B) + cost(C) <= cost(A)
+  std::vector<std::pair<const std::vector<uint8_t> *, int>> shorts;
+  for (auto &kv : best) if (kv.second <= shortCost) shorts.push_back({&kv.first, kv.second});
+  std::vector<std::pair<const std::vector<uint8_t> *, int>> all;
+  for (auto &kv : best) if (kv.second <= cap) all.push_back({&kv.first, kv.second});
+  std::vector<char> drop(all.size(), 0);
+  std::atomic<size_t> next{0};
+  auto work = [&] {
+    std::vector<uint8_t> c(st.n), binv(st.n);
+    for (size_t i; (i = next++) < all.size();) {
+      const auto &A = *all[i].first;
+      const int ca = all[i].second;
+      for (auto &b : shorts) {
+        if (b.second + minAlgCost > ca) continue;
+        const auto &B = *b.first;
+        if (&B == &A) continue;
+        // A = C o B (B first): C = A o B^-1, C[B[x]] = A[x]
+        for (int x = 0; x < st.n; x++) c[B[x]] = A[x];
+        auto it = best.find(c);
+        if (it != best.end() && it->second + b.second <= ca) { drop[i] = 1; break; }
+        // A = B o C (C first): C = B^-1 o A
+        for (int x = 0; x < st.n; x++) binv[B[x]] = x;
+        for (int x = 0; x < st.n; x++) c[x] = binv[A[x]];
+        it = best.find(c);
+        if (it != best.end() && it->second + b.second <= ca) { drop[i] = 1; break; }
+      }
+    }
+  };
+  std::vector<std::thread> th;
+  for (int t = 0; t < nthreads; t++) th.emplace_back(work);
+  for (auto &t : th) t.join();
+  std::vector<CAlg> r;
+  for (size_t i = 0; i < all.size(); i++) if (!drop[i]) r.push_back({*all[i].first, all[i].second});
+  std::sort(r.begin(), r.end(), [](const CAlg &a, const CAlg &b) { return a.cost < b.cost; });
+  return r;
+}
+
+
+
+static void firstMinPass(const Stage &st, const std::vector<uint8_t> &dist, const int maxd) {
+  // --firstmin: the first stage may be applied in any symmetric orientation (another face or
+  // axis taken as "U"), so its effective bound is the largest k such that some full colouring
+  // has every orientation at distance >= k.  Bad states (dist >= k) are combined across the
+  // distinct preimages R = g^-1(T) of the tracked groups, consistently, by depth-first search.
+  {
+    struct Img { const GSym *g; std::vector<int> R; };
+    std::vector<Img> imgs;
+    std::vector<int> seen;
+    for (auto &gs : gsyms) {
+      int R = 0;
+      for (int q = 0; q < G; q++) if (st.T >> gs.gm[q] & 1) R |= 1 << q;
+      if (std::find(seen.begin(), seen.end(), R) != seen.end()) continue;
+      seen.push_back(R);
+      Img im;
+      im.g = &gs;
+      imgs.push_back(im);
+    }
+    const int J = imgs.size();
+    std::vector<std::vector<int>> sigInv(J, std::vector<int>(P)), gmInv(J, std::vector<int>(G));
+    for (int j = 0; j < J; j++) {
+      for (int p = 0; p < P; p++) sigInv[j][imgs[j].g->sigma[p] % P] = p;
+      for (int q = 0; q < G; q++) gmInv[j][imgs[j].g->gm[q]] = q;
+    }
+    std::string fm = " firstmin over " + std::to_string(J) + " orientations:";
+    int k = maxd;
+    for (; k > 0; k--) {
+      std::vector<uint64_t> bad;
+      for (uint64_t r = 0; r < st.total; r++) if (dist[r] >= k) bad.push_back(r);
+      if (bad.size() > firstMinCap) { fm += " " + std::to_string(k) + ": " + std::to_string(bad.size()) + " states, too many;"; k++; break; }
+      // per orientation and bad state: (group, position mask) pairs in the original frame
+      struct Pl { uint8_t g[8]; uint64_t m[8]; };
+      std::vector<std::vector<Pl>> pl(J, std::vector<Pl>(bad.size()));
+      const int nc = st.tg.size();
+      for (int j = 0; j < J; j++)
+        for (size_t b = 0; b < bad.size(); b++) {
+          uint64_t m[8];
+          unrank(st, bad[b], m);
+          for (int c = 0; c < nc; c++) {
+            uint64_t x = 0;
+            for (uint64_t z = m[c]; z; z &= z - 1) x |= 1ULL << sigInv[j][st.pos[__builtin_ctzll(z)]];
+            pl[j][b].g[c] = gmInv[j][st.tg[c]];
+            pl[j][b].m[c] = x;
+          }
+        }
+      // forward checking: per remaining orientation the candidates compatible with what is
+      // placed; branch on the orientation with the fewest
+      std::atomic<bool> found{false}, aborted{false};
+      std::vector<std::pair<int, uint32_t>> witness;
+      std::vector<std::vector<std::pair<int, uint32_t>>> allPaths;
+      std::atomic<size_t> next{0};
+      std::atomic<uint64_t> nodes{0};
+      auto compat = [&](const Pl &y, const Pl &x) {
+        for (int c = 0; c < nc; c++) {
+          uint64_t occx = 0;
+          bool same = false;
+          for (int e = 0; e < nc; e++) { occx |= x.m[e]; if (x.g[e] == y.g[c]) { same = true; if (x.m[e] != y.m[c]) return false; } }
+          if (!same && (y.m[c] & occx)) return false;
+        }
+        return true;
+      };
+      auto worker = [&]() {
+        std::vector<std::pair<int, uint32_t>> path;
+        std::function<bool(std::vector<std::vector<uint32_t>> &, std::vector<int> &)> dfs =
+            [&](std::vector<std::vector<uint32_t>> &cand, std::vector<int> &left) -> bool {
+          if (left.empty()) {
+            std::lock_guard<std::mutex> g(worstMu);
+            if (witness.empty()) witness = path;
+            if (!combineMode) return true;
+            allPaths.push_back(path);
+            found = true;
+            if (allPaths.size() > combCap) aborted = true;  // too many to combine: stop enumerating
+            return false;
+          }
+          if (++nodes > firstMinNodes) { aborted = true; return false; }
+          size_t bi = 0;
+          for (size_t i = 1; i < left.size(); i++) if (cand[left[i]].size() < cand[left[bi]].size()) bi = i;
+          const int j = left[bi];
+          std::vector<int> left2 = left;
+          left2.erase(left2.begin() + bi);
+          for (uint32_t b : cand[j]) {
+            if ((found && !combineMode) || aborted) return false;
+            const Pl &x = pl[j][b];
+            std::vector<std::vector<uint32_t>> c2(J);
+            bool dead = false;
+            for (int o : left2) {
+              for (uint32_t y : cand[o]) if (compat(pl[o][y], x)) c2[o].push_back(y);
+              if (c2[o].empty()) { dead = true; break; }
+            }
+            path.emplace_back(j, b);
+            if (!dead && dfs(c2, left2)) return true;
+            path.pop_back();
+          }
+          return false;
+        };
+        for (size_t b; (!found || combineMode) && !aborted && (b = next++) < bad.size();) {
+          const Pl &x = pl[0][b];
+          std::vector<std::vector<uint32_t>> cand(J);
+          std::vector<int> left;
+          bool dead = false;
+          for (int o = 1; o < J && !dead; o++) {
+            left.push_back(o);
+            for (uint32_t y = 0; y < bad.size(); y++) if (compat(pl[o][y], x)) cand[o].push_back(y);
+            dead = cand[o].empty();
+          }
+          path.assign(1, {0, (uint32_t)b});
+          if (!dead && dfs(cand, left)) found = true;
+        }
+      };
+      std::vector<std::thread> th;
+      for (int t = 0; t < nthreads; t++) th.emplace_back(worker);
+      for (auto &t : th) t.join();
+      if (found && aborted) combTruncated = true;
+      if (aborted && !found) { fm += " " + std::to_string(k) + ": " + std::to_string(bad.size()) + " states, search too large;"; break; }
+      if (found) {  // check the witness colouring independently, with the forward maps
+        std::vector<int> col(P, -1);
+        for (auto &w : witness)
+          for (int c = 0; c < nc; c++)
+            for (uint64_t z = pl[w.first][w.second].m[c]; z; z &= z - 1) col[__builtin_ctzll(z)] = pl[w.first][w.second].g[c];
+        std::vector<int> cnt(G, 0);  // fill untracked positions with the unused colours of their orbit
+        for (int p = 0; p < P; p++) if (col[p] >= 0) cnt[col[p]]++;
+        for (int p = 0; p < P; p++)
+          if (col[p] < 0)
+            for (int q = 6 * (p / 24); q < 6 * (p / 24) + 6; q++) if (cnt[q] < 4) { col[p] = q; cnt[q]++; break; }
+        int mn = 255;
+        for (auto &gs : gsyms) {
+          uint64_t m[8] = {0};
+          for (int p = 0; p < P; p++) {
+            const int q = gs.gm[col[p]];
+            for (int c = 0; c < nc; c++) if (st.tg[c] == q) m[c] |= 1ULL << st.cidx[gs.sigma[p] % P];
+          }
+          mn = std::min<int>(mn, dist[rankOf(st, m)]);
+        }
+        if (mn < k) { fprintf(stderr, "firstmin: witness check failed (%d < %d)\n", mn, k); exit(1); }
+        std::string cs;
+        for (int p = 0; p < P; p++) cs += 'A' + col[p];
+        fm += " witness " + cs + " min " + std::to_string(mn) + ";";
+        if (combineMode) {  // every colouring bad in all orientations, for --combine
+          combK = k;
+          combCols.clear();
+          for (auto &w : allPaths) {
+            std::vector<int8_t> cc(P, -1);
+            for (auto &e : w)
+              for (int c = 0; c < nc; c++)
+                for (uint64_t z = pl[e.first][e.second].m[c]; z; z &= z - 1) cc[__builtin_ctzll(z)] = pl[e.first][e.second].g[c];
+            std::vector<int> cnt(G, 0);
+            for (int p = 0; p < P; p++) if (cc[p] >= 0) cnt[cc[p]]++;
+            for (int p = 0; p < P; p++)
+              if (cc[p] < 0)
+                for (int q = 6 * (p / 24); q < 6 * (p / 24) + 6; q++) if (cnt[q] < 4) { cc[p] = q; cnt[q]++; break; }
+            combCols.push_back(cc);
+          }
+          std::sort(combCols.begin(), combCols.end());
+          combCols.erase(std::unique(combCols.begin(), combCols.end()), combCols.end());
+          fm += " " + std::to_string(combCols.size()) + " colourings;";
+        }
+      }
+      fm += " " + std::to_string(k) + ": " + std::to_string(bad.size()) + (found ? " states, realizable;" : " states, none;");
+      if (found) break;
+    }
+    fm += " -> " + std::to_string(k);
+    refineLog += fm;
+  }
+}
+
+// exact worst case of the stage (-1 if some state is unreachable)
+// EXAMPLE: a position at the stage's worst distance, a path of that cost through the stage's
+// actions, each action traced back to a pool sequence, and the whole sequence re-applied
+static void exampleSolve(const Stage &st, const std::vector<uint8_t> &dist, const std::vector<CAlg> &ca, int maxd) {
+  const int nc = st.tg.size();
+  uint64_t r0 = 0;
+  while (dist[r0] != maxd) r0++;
+  uint64_t m0[8];
+  unrank(st, r0, m0);
+  std::vector<uint32_t> path, best;
+  long nodes = 0;
+  std::function<bool(const uint64_t *, int, int)> dfs = [&](const uint64_t *m, int last, int left) -> bool {
+    const int d = dist[rankOf(st, m)];
+    if (d == 0) { best = path; return true; }
+    if (++nodes > 50000000) return false;
+    std::vector<std::pair<int, uint32_t>> kids;
+    for (uint32_t i = 0; i < ca.size(); i++) {
+      const CAlg &a = ca[i];
+      const uint64_t lb = 1ULL << last;
+      const int c = a.cost - ((lb & mergeSame0[a.first]) ? 2 : (lb & mergeSame1[a.first]) ? 1 : 0);
+      if (c > left) continue;
+      uint64_t t[8];
+      for (int k = 0; k < nc; k++) { uint64_t z = 0; for (uint64_t w = m[k]; w; w &= w - 1) z |= 1ULL << a.d[__builtin_ctzll(w)]; t[k] = z; }
+      const int d2 = dist[rankOf(st, t)];
+      if (c + d2 - (d2 && a.last != 54 ? 2 : 0) > left) continue;
+      kids.push_back({(c + d2) * 64 + c, i});
+    }
+    std::sort(kids.begin(), kids.end());
+    for (auto &kd : kids) {
+      const CAlg &a = ca[kd.second];
+      uint64_t t[8];
+      for (int k = 0; k < nc; k++) { uint64_t z = 0; for (uint64_t w = m[k]; w; w &= w - 1) z |= 1ULL << a.d[__builtin_ctzll(w)]; t[k] = z; }
+      path.push_back(kd.second);
+      if (dfs(t, a.last, left - kd.first % 64)) return true;
+      path.pop_back();
+    }
+    return false;
+  };
+  if (!dfs(m0, 54, maxd)) { printf("EXAMPLE: no path found\n"); return; }
+  // colouring over all P positions: solved groups their own colour, tracked colours from the state
+  std::vector<int> col(P, -1);
+  for (int p = 0; p < P; p++) if (st.S >> (p / 4) & 1) col[p] = p / 4;
+  for (int k = 0; k < nc; k++) for (uint64_t w = m0[k]; w; w &= w - 1) col[st.pos[__builtin_ctzll(w)]] = st.tg[k];
+  auto colStr = [&](const std::vector<int> &c) { std::string x; for (int p = 0; p < P; p++) { if (p && p % 4 == 0) x += ' '; x += c[p] < 0 ? '.' : (char)('A' + c[p]); } return x; };
+  printf("EXAMPLE stage %s, distance %d, position (groups of 4: %s):\n  %s\n", gname(st.T).c_str(), maxd,
+         P == 48 ? "aU aL aF aR aB aD bU bL bF bR bB bD; letter = home group" : "U L F R B D; letter = home group", colStr(col).c_str());
+  std::vector<Move> all;
+  int sum = 0;
+  for (uint32_t ai : best) {
+    const CAlg &a = ca[ai];
+    const Alg *found = nullptr;
+    for (auto &A : algs) {
+      if (A.cost != a.cost || A.first != a.first || A.last != a.last || A.src < 0) continue;
+      bool ok = true;
+      for (int i = 0; i < st.n && ok; i++) ok = st.cidx[A.dst[st.pos[i]]] == a.d[i];
+      for (int p = 0; p < P && ok; p++) if (st.S >> (p / 4) & 1) ok = A.dst[p] / 4 == p / 4;
+      if (ok) { found = &A; break; }
+    }
+    if (!found) { printf("  (action not traced)\n"); return; }
+    const Src &sc = srcs[found->src];
+    std::vector<Move> mv;
+    if (sc.file < 0) mv.push_back(Move{(uint8_t)(sc.ref / 3), 1, (uint8_t)(sc.ref % 3 + 1)});
+    else {
+      mv = gModel->image(pools[sc.file].rep[sc.ref / 96], sc.ref % 96);
+      mv = std::vector<Move>(mv.begin() + sc.i, mv.end() - sc.j);
+    }
+    std::string t;
+    for (auto &x : mv) t += (t.empty() ? "" : " ") + move_str(x);
+    printf("  %2d moves: %s\n", (int)mv.size(), t.c_str());
+    sum += mv.size();
+    all.insert(all.end(), mv.begin(), mv.end());
+  }
+  // merge consecutive turns of one layer
+  std::vector<Move> red;
+  for (auto &x : all) {
+    if (!red.empty() && red.back().face == x.face && red.back().depth == x.depth) {
+      const int a = (red.back().amt + x.amt) % 4;
+      if (a == 0) red.pop_back(); else red.back().amt = a;
+    } else red.push_back(x);
+  }
+  std::string t;
+  for (auto &x : red) t += (t.empty() ? "" : " ") + move_str(x);
+  // re-apply to the colouring: the piece now at k came from q[k]
+  auto q = gModel->permOf(red);
+  std::vector<int> after(P);
+  for (int k = 0; k < P; k++) after[k] = col[q[k]];
+  bool solved = true;
+  for (int p = 0; p < P; p++) solved &= after[p] == p / 4;
+  printf("  %d actions, %d moves before merging, %zu after:\n  %s\n  re-applied: %s\n", (int)best.size(), sum, red.size(), t.c_str(), solved ? "all solved" : "NOT SOLVED");
+  fflush(stdout);
+}
+
+static int solveStage(const Stage &st, std::string &info) {
+  long usable;
+  double t0 = now();
+  auto ca = stageAlgs(st, usable);
+  const std::vector<CAlg> caFull = ca;  // before the budget: used from small source levels
+  if (const char *ld = getenv("LOADDIST")) {  // a table dumped by DUMPDIST: skip the search
+    FILE *f = fopen((std::string(ld) + "." + std::to_string(curStage)).c_str(), "rb");
+    if (f) {
+      std::vector<uint8_t> dist(st.total);
+      const bool ok = fread(dist.data(), 1, st.total, f) == st.total;
+      fclose(f);
+      if (!ok) { fprintf(stderr, "LOADDIST: short table\n"); exit(1); }
+      int maxd = 0;
+      for (uint64_t r = 0; r < st.total; r++) { if (dist[r] == 0xFF) { fprintf(stderr, "LOADDIST: unreached state\n"); exit(1); } maxd = std::max<int>(maxd, dist[r]); }
+      refineLog.clear();
+      if (exampleOn && atoi(getenv("EXAMPLE")) == curStage) exampleSolve(st, dist, caFull, maxd);
+      if (getenv("SEEDCHECK")) {
+        // each action applied once to the solved stage state: how many land beyond their own cost
+        const int nc = st.tg.size();
+        uint64_t m0[8];
+        for (int c = 0; c < nc; c++) { m0[c] = 0; for (int i = 0; i < st.n; i++) if (st.pos[i] / 4 == st.tg[c]) m0[c] |= 1ULL << i; }
+        std::map<int, long> legal, better;
+        std::map<int, std::map<int, long>> gain;
+        for (auto &a : caFull) {
+          uint64_t t[8];
+          for (int c = 0; c < nc; c++) { uint64_t z = 0; for (uint64_t w = m0[c]; w; w &= w - 1) z |= 1ULL << a.d[__builtin_ctzll(w)]; t[c] = z; }
+          const int d = dist[rankOf(st, t)];
+          legal[a.cost]++;
+          if (d > a.cost) { better[a.cost]++; gain[a.cost][d - a.cost]++; }
+        }
+        printf("  SEEDCHECK %s: actions by cost (improving / legal):", gname(st.T).c_str());
+        for (auto &kv : legal) printf(" %d:%ld/%ld", kv.first, better[kv.first], kv.second);
+        printf("\n");
+        for (auto &kv : gain) { printf("    cost %d gains:", kv.first); for (auto &g : kv.second) printf(" +%d:%ld", g.first, g.second); printf("\n"); }
+        fflush(stdout);
+      }
+      if (firstMinCap && st.S == 0) firstMinPass(st, dist, maxd);
+      info = "loaded table, " + std::to_string(st.total) + " states, " + std::to_string(caFull.size()) + " actions;" + refineLog;
+      refineLog.clear();
+      if (combineMode) kept.push_back({st, dist, caFull, maxd});
+      return maxd;
+    }
+  }
+  // edge budget: keep the cheapest actions (whole cost classes) while states x actions fits
+  int costCap = 255;
+  while (ca.size() > 1 && (double)st.total * ca.size() > (stageBudget.count(curStage) ? stageBudget[curStage] : edgeBudget)) {
+    costCap = ca.back().cost - 1;
+    while (!ca.empty() && ca.back().cost > costCap) ca.pop_back();
+  }
+  const int nc = st.tg.size();
+  std::vector<uint8_t> dist(st.total, 0xFF);
+  std::atomic<uint64_t> reached{0};
+  int maxd = 0;
+  std::vector<uint64_t> tails;  // merge mode: last moves of the cheapest paths (kept for refine)
+  if (mergeMode && !oldSearch) tails.assign(st.total, 0);
+  // Symmetry: the cube symmetries that keep S and T (as sets) map stage states to stage states
+  // (tracked colours relabelled) and preserve distances and merge bits.  Only canonical
+  // sources (least rank among their images) are expanded; every discovery and every new merge
+  // bit is written to all images, so the results are exactly those of the full search.
+  struct SSym { std::vector<uint8_t> fmap; std::vector<int> cmap; const int *mv; };
+  std::vector<SSym> ssyms;
+  if (symOn) {
+    auto gapply = [&](const std::vector<int> &g, int mask) { int r = 0; for (int q = 0; q < G; q++) if (mask >> q & 1) r |= 1 << g[q]; return r; };
+    for (auto &gs : gsyms) {
+      if (gapply(gs.gm, st.S) != st.S || gapply(gs.gm, st.T) != st.T) continue;
+      SSym y;
+      bool ident = true, ok = true;
+      for (int i = 0; i < st.n; i++) {
+        const int q = gs.sigma[st.pos[i]] % P;
+        const int fi = q < (int)st.cidx.size() ? st.cidx[q] : -1;
+        ok &= fi >= 0;
+        y.fmap.push_back(fi < 0 ? 0 : fi);
+        ident &= fi == i;
+      }
+      for (size_t c = 0; c < st.tg.size(); c++) {
+        const int gg = gs.gm[st.tg[c]];
+        int ci = -1;
+        for (size_t e = 0; e < st.tg.size(); e++) if (st.tg[e] == gg) ci = e;
+        ok &= ci >= 0;
+        y.cmap.push_back(ci);
+        ident &= ci == (int)c;
+      }
+      y.mv = gs.moveMap;
+      if (ok && !ident) ssyms.push_back(y);
+    }
+  }
+  auto image = [&](const SSym &y, const uint64_t *m, uint64_t *out) {
+    for (int c = 0; c < nc; c++) {
+      uint64_t x = 0;
+      for (uint64_t z = m[c]; z; z &= z - 1) x |= 1ULL << y.fmap[__builtin_ctzll(z)];
+      out[y.cmap[c]] = x;
+    }
+  };
+  const bool useSym = !ssyms.empty();
+  std::vector<uint64_t> canonBits;
+  if (useSym) {
+    canonBits.assign(st.total / 64 + 1, 0);
+    std::atomic<uint64_t> nx{0}, ncanon{0};
+    auto cw = [&] {
+      uint64_t m[8], t[8], cnt = 0;
+      const uint64_t ch = 1 << 14;
+      for (uint64_t c0; (c0 = nx.fetch_add(ch)) < st.total;) {
+        const uint64_t c1 = std::min<uint64_t>(st.total, c0 + ch);
+        for (uint64_t r = c0; r < c1; r++) {
+          unrank(st, r, m);
+          bool can = true;
+          for (auto &y : ssyms) { image(y, m, t); if (rankOf(st, t) < r) { can = false; break; } }
+          if (can) { canonBits[r >> 6] |= 1ULL << (r & 63); cnt++; }
+        }
+      }
+      ncanon += cnt;
+    };
+    std::vector<std::thread> th;
+    for (int i = 0; i < nthreads; i++) th.emplace_back(cw);
+    for (auto &x : th) x.join();
+    symInfo = ", " + std::to_string(ssyms.size() + 1) + " symmetries, " + std::to_string(ncanon.load()) + " canonical";
+  }
+  if (!oldSearch) {
+    // Discovery order: for each target distance d, every source at a < d with every algorithm
+    // whose cost (less any merge saving) is exactly d - a.  A position first reached at d is
+    // final (all pairs summing to less were tried at earlier targets), nothing is ever lowered,
+    // and the search stops as soon as the last position is found: pairs whose sum would exceed
+    // the worst case are never tried.
+    uint64_t g[8];
+    for (int c = 0; c < nc; c++) { g[c] = 0; for (int k = 0; k < 4; k++) g[c] |= 1ULL << st.cidx[4 * st.tg[c] + k]; }
+    dist[rankOf(st, g)] = 0;
+    const int maxSave = mergeMode ? 2 : 0;
+    // two action sets: the budget set, and every usable action for source levels small enough
+    // that (positions at the level) x (all actions) <= fullWork.  A source's actions depend only
+    // on its own final level, so the search is still an exact shortest-path search in that graph.
+    struct ASet {
+      const std::vector<CAlg> *v;
+      int minC, maxC;
+      std::vector<size_t> lo, hi;
+      std::vector<uint32_t> lo2, hi2;  // merge mode: range of (cost, first move) at [cost * 54 + first]
+      std::vector<uint8_t> dT;
+    };
+    // merge mode: actions sorted by (cost, first move), so a source iterates only the actions
+    // whose cost less the saving of their first move hits the target exactly
+    std::vector<CAlg> caSorted = ca, caFullSorted;
+    auto byCostFirst = [](const CAlg &x, const CAlg &y) { return x.cost != y.cost ? x.cost < y.cost : x.first < y.first; };
+    if (mergeMode) std::sort(caSorted.begin(), caSorted.end(), byCostFirst);
+    auto mk = [&](const std::vector<CAlg> &v) {
+      ASet A;
+      A.v = &v;
+      A.minC = v.front().cost, A.maxC = v.back().cost;
+      A.lo.assign(A.maxC + 2, 0), A.hi.assign(A.maxC + 2, 0);
+      for (size_t i = 0; i < v.size(); i++) { if (i == 0 || v[i].cost != v[i - 1].cost) A.lo[v[i].cost] = i; A.hi[v[i].cost] = i + 1; }
+      A.dT.assign(v.size() * 64, 0);
+      for (size_t i = 0; i < v.size(); i++) for (int k = 0; k < st.n; k++) A.dT[i * 64 + k] = v[i].d[k];
+      if (mergeMode) {
+        A.lo2.assign((A.maxC + 3) * 55, 0), A.hi2.assign((A.maxC + 3) * 55, 0);
+        for (size_t i = 0; i < v.size(); i++) {
+          const size_t key = v[i].cost * 55 + v[i].first;
+          if (i == 0 || v[i].cost * 55 + v[i - 1].first != key || v[i - 1].cost != v[i].cost) A.lo2[key] = i;
+          A.hi2[key] = i + 1;
+        }
+      }
+      return A;
+    };
+    const bool twoSets = caFull.size() > ca.size() && fullWork > 0;
+    if (twoSets && mergeMode) { caFullSorted = caFull; std::sort(caFullSorted.begin(), caFullSorted.end(), byCostFirst); }
+    ASet S0 = mk(mergeMode ? caSorted : ca), S1 = twoSets ? mk(mergeMode ? caFullSorted : caFull) : ASet();
+    const int maxCAll = twoSets ? std::max(S0.maxC, S1.maxC) : S0.maxC;
+    std::vector<uint64_t> levelCount(256, 0);
+    levelCount[0] = 1;
+    std::vector<char> useFull(256, 0);
+    int fullLevels = 0;
+    uint64_t nReached = 1;
+    int lastFound = 0;
+    std::atomic<uint64_t> pairs{0};
+    const double tSearch = now();
+    for (int d = 1; d < 255 && nReached < st.total; d++) {
+      if (d - lastFound > maxCAll) break;  // no source can reach further
+      // level d-1 is final now: decide its action set
+      if (twoSets && (double)levelCount[d - 1] * caFull.size() <= fullWork && levelCount[d - 1]) { useFull[d - 1] = 1; fullLevels++; }
+      std::atomic<uint64_t> next{0}, found{0};
+      auto work = [&] {
+        uint64_t m[8], t[8], f = 0, np = 0;
+        (void)np;
+        // targets are prefetched and handled PF pairs later (the arrays are far bigger than cache)
+        constexpr int PF = 16;
+        uint64_t ringT[PF], ringB[PF];
+        int rh = 0, rn = 0;
+        uint64_t sm[8], si[8];
+        auto settle = [&](uint64_t tr, uint64_t bit) {
+          std::atomic_ref<uint8_t> ar(dist[tr]);
+          uint8_t cur = ar.load(std::memory_order_relaxed);
+          bool newDisc = false, newTail = false;
+          if (cur == 0xFF && ar.compare_exchange_strong(cur, (uint8_t)d, std::memory_order_relaxed)) { f++; newDisc = true; cur = 0xFF; }
+          if (mergeMode && (cur == 0xFF || cur == d)) {
+            std::atomic_ref<uint64_t> at(tails[tr]);
+            if (!(at.load(std::memory_order_relaxed) & bit)) { at.fetch_or(bit, std::memory_order_relaxed); newTail = true; }
+          }
+          if (useSym && (newDisc || newTail)) {
+            unrank(st, tr, sm);
+            const int code = __builtin_ctzll(bit);
+            for (auto &y : ssyms) {
+              image(y, sm, si);
+              const uint64_t ti = rankOf(st, si);
+              std::atomic_ref<uint8_t> ai(dist[ti]);
+              uint8_t ci = ai.load(std::memory_order_relaxed);
+              if (newDisc && ci == 0xFF && ai.compare_exchange_strong(ci, (uint8_t)d, std::memory_order_relaxed)) f++;
+              if (newTail) {
+                const uint64_t b2 = 1ULL << y.mv[code];
+                std::atomic_ref<uint64_t> at(tails[ti]);
+                if (!(at.load(std::memory_order_relaxed) & b2)) at.fetch_or(b2, std::memory_order_relaxed);
+              }
+            }
+          }
+        };
+        const uint64_t chunk = std::max<uint64_t>(64, std::min<uint64_t>(1 << 14, st.total / (8 * nthreads)));
+        for (uint64_t c0; (c0 = next.fetch_add(chunk)) < st.total;) {
+          const uint64_t c1 = std::min<uint64_t>(st.total, c0 + chunk);
+          for (uint64_t r = c0; r < c1; r++) {
+            const int a = std::atomic_ref<uint8_t>(dist[r]).load(std::memory_order_relaxed);
+            if (a >= d) continue;  // unreached (0xFF) or not a source yet
+            if (useSym && !(canonBits[r >> 6] >> (r & 63) & 1)) continue;
+            const ASet &A = useFull[a] ? S1 : S0;
+            const std::vector<CAlg> &cv = *A.v;
+            const int base = d - a;
+            if (base + maxSave < A.minC || base > A.maxC) continue;
+            const uint64_t tl = mergeMode ? tails[r] : 0;
+            bool have = false;
+            auto pairAt = [&](size_t i) {
+              if (!have) { unrank(st, r, m); have = true; }
+              const uint8_t *D = &A.dT[i * 64];
+              for (int c = st.fr ? st.fr->firstTracked : 0; c < nc; c++) {
+                uint64_t x = 0;
+                for (uint64_t y = m[c]; y; y &= y - 1) x |= 1ULL << D[__builtin_ctzll(y)];
+                t[c] = x;
+              }
+              const uint64_t tr = rankOf(st, t);
+              np++;
+              if (noPrefetch) { settle(tr, 1ULL << cv[i].last); return; }
+              __builtin_prefetch(&dist[tr], 1);
+              if (mergeMode) __builtin_prefetch(&tails[tr], 1);
+              if (rn == PF) { settle(ringT[rh], ringB[rh]); rh = (rh + 1) % PF; rn--; }
+              const int slot = (rh + rn) % PF;
+              ringT[slot] = tr, ringB[slot] = 1ULL << cv[i].last;
+              rn++;
+            };
+            if (mergeMode) {
+              for (int fm = 0; fm < 55; fm++) {
+                const int save = (tl & mergeSame0[fm]) ? 2 : (tl & mergeSame1[fm]) ? 1 : 0;
+                const int L = base + save;
+                if (L < A.minC || L > A.maxC) continue;
+                for (size_t i = A.lo2[L * 55 + fm]; i < A.hi2[L * 55 + fm]; i++) pairAt(i);
+              }
+            } else {
+              for (size_t i = A.lo[base]; i < A.hi[base]; i++) pairAt(i);
+            }
+          }
+          while (rn) { settle(ringT[rh], ringB[rh]); rh = (rh + 1) % PF; rn--; }
+        }
+        pairs += np;
+        found += f;
+      };
+      std::vector<std::thread> th;
+      for (int i = 0; i < nthreads; i++) th.emplace_back(work);
+      for (auto &x : th) x.join();
+      levelCount[d] = found;
+      if (found) { nReached += found; maxd = d; lastFound = d; }
+    }
+    reached = nReached;
+    if (twoSets) fullInfo = ", all " + std::to_string(caFull.size()) + " actions from " + std::to_string(fullLevels) + " levels";
+    {
+      char pb[128];
+      const double sec = now() - tSearch;
+      snprintf(pb, sizeof pb, "; search %.1fs, %.3g pairs (%.3g/s)", sec, (double)pairs.load(), pairs.load() / std::max(sec, 1e-9));
+      fullInfo += pb;
+    }
+  } else {
+  if (mergeMode) {
+    // per state: distance (top byte) and the set of last moves of cheapest paths (low 54 bits);
+    // a path kept only at a longer distance is dropped, so this is an upper bound, not exact
+    std::vector<uint64_t> key(st.total, ~0ULL);
+    uint64_t g[8];
+    for (int c = 0; c < nc; c++) { g[c] = 0; for (int k = 0; k < 4; k++) g[c] |= 1ULL << st.cidx[4 * st.tg[c] + k]; }
+    key[rankOf(st, g)] = 0;
+    std::vector<uint8_t> dT(ca.size() * 64);
+    for (size_t a = 0; a < ca.size(); a++) for (int i = 0; i < st.n; i++) dT[a * 64 + i] = ca[a].d[i];
+    for (int d = 0; d < 255; d++) {
+      std::atomic<uint64_t> next{0}, found{0}, later{0};
+      auto work = [&] {
+        uint64_t m[8], t[8], f = 0, l = 0;
+        const uint64_t chunk = std::max<uint64_t>(64, std::min<uint64_t>(1 << 14, st.total / (8 * nthreads)));
+        for (uint64_t lo; (lo = next.fetch_add(chunk)) < st.total;) {
+          const uint64_t hi = std::min(st.total, lo + chunk);
+          for (uint64_t r = lo; r < hi; r++) {
+            const uint64_t kv = std::atomic_ref<uint64_t>(key[r]).load(std::memory_order_relaxed);
+            const int dv = kv >> 56;
+            if (dv != d) { if (kv != ~0ULL && dv > d) l++; continue; }
+            f++;
+            const uint64_t tails = kv & ((1ULL << 56) - 1);
+            unrank(st, r, m);
+            for (size_t a = 0; a < ca.size(); a++) {
+              const int fm = ca[a].first;
+              const int save = (tails & mergeSame0[fm]) ? 2 : (tails & mergeSame1[fm]) ? 1 : 0;
+              const int nd = d + ca[a].cost - save;
+              if (nd >= 255) continue;
+              const uint8_t *D = &dT[a * 64];
+              for (int c = 0; c < nc; c++) {
+                uint64_t x = 0;
+                for (uint64_t y = m[c]; y; y &= y - 1) x |= 1ULL << D[__builtin_ctzll(y)];
+                t[c] = x;
+              }
+              std::atomic_ref<uint64_t> ar(key[rankOf(st, t)]);
+              const uint64_t bit = 1ULL << ca[a].last;
+              uint64_t cur = ar.load(std::memory_order_relaxed);
+              for (;;) {
+                const int cd = cur == ~0ULL ? 255 : (int)(cur >> 56);
+                uint64_t nk;
+                if (nd < cd) nk = (uint64_t)nd << 56 | bit;
+                else if (nd == cd && !(cur & bit)) nk = cur | bit;
+                else break;
+                if (ar.compare_exchange_weak(cur, nk, std::memory_order_relaxed)) break;
+              }
+            }
+          }
+        }
+        found += f, later += l;
+      };
+      std::vector<std::thread> th;
+      for (int i = 0; i < nthreads; i++) th.emplace_back(work);
+      for (auto &x : th) x.join();
+      if (!found && !later) {
+        bool any = false;
+        for (uint64_t r = 0; r < st.total && !any; r++) any = key[r] != ~0ULL && (int)(key[r] >> 56) > d;
+        if (!any) break;
+      }
+    }
+    for (uint64_t r = 0; r < st.total; r++) dist[r] = key[r] == ~0ULL ? 0xFF : key[r] >> 56;
+  }
+  uint64_t goal[8];
+  for (int c = 0; c < nc; c++) {
+    uint64_t m = 0;
+    for (int k = 0; k < 4; k++) m |= 1ULL << st.cidx[4 * st.tg[c] + k];
+    goal[c] = m;
+  }
+  if (mergeMode) {
+    for (uint64_t r = 0; r < st.total; r++) if (dist[r] != 0xFF) { reached++; maxd = std::max<int>(maxd, dist[r]); }
+  } else {
+  dist[rankOf(st, goal)] = 0;
+  // level-synchronous Dijkstra: costs are positive, so states at the current level are final
+  std::vector<uint8_t> dstT(ca.size() * 64);
+  for (size_t a = 0; a < ca.size(); a++) for (int i = 0; i < st.n; i++) dstT[a * 64 + i] = ca[a].d[i];
+  for (int d = 0; d < 255; d++) {
+    std::atomic<uint64_t> found{0}, pending{0};
+    const uint64_t chunk = std::max<uint64_t>(64, std::min<uint64_t>(1 << 16, st.total / (8 * nthreads)));
+    std::atomic<uint64_t> next{0};
+    auto work = [&] {
+      uint64_t m[8], t[8], f = 0, pend = 0;
+      for (uint64_t lo; (lo = next.fetch_add(chunk)) < st.total;) {
+        const uint64_t hi = std::min(st.total, lo + chunk);
+        for (uint64_t r = lo; r < hi; r++) {
+          uint8_t dv = std::atomic_ref<uint8_t>(dist[r]).load(std::memory_order_relaxed);
+          if (dv != d) { if (dv != 0xFF && dv > d) pend++; continue; }
+          f++;
+          unrank(st, r, m);
+          for (size_t a = 0; a < ca.size(); a++) {
+            const int nd = d + ca[a].cost;
+            if (nd >= 255) break;
+            const uint8_t *D = &dstT[a * 64];
+            for (int c = 0; c < nc; c++) {
+              uint64_t x = 0;
+              for (uint64_t y = m[c]; y; y &= y - 1) x |= 1ULL << D[__builtin_ctzll(y)];
+              t[c] = x;
+            }
+            const uint64_t tr = rankOf(st, t);
+            std::atomic_ref<uint8_t> ar(dist[tr]);
+            uint8_t cur = ar.load(std::memory_order_relaxed);
+            while (nd < cur && !ar.compare_exchange_weak(cur, (uint8_t)nd, std::memory_order_relaxed)) {}
+          }
+        }
+      }
+      found += f;
+      pending += pend;
+    };
+    std::vector<std::thread> th;
+    for (int i = 0; i < nthreads; i++) th.emplace_back(work);
+    for (auto &x : th) x.join();
+    if (found) { reached += found; maxd = d; }
+    // pending counts states with a tentative distance above d (seen during the scan; recount to be sure)
+    if (!found) {
+      bool any = false;
+      for (uint64_t r = 0; r < st.total && !any; r++) any = dist[r] != 0xFF && dist[r] > d;
+      if (!any) break;
+    }
+  }
+  }
+  }
+  // --refine: the worst positions again, with every usable algorithm (no budget) as a first step
+  // and the stage table for the rest: dist'(s) = min(dist(s), cost(a) + dist(a(s))), repeated
+  // while the worst level shrinks to nothing
+  refineLog.clear();
+  if (refineMode && reached == st.total) {
+    struct H2 { size_t operator()(const std::vector<uint8_t> &v) const { size_t h = 1469598103934665603ULL; for (auto c : v) h = (h ^ c) * 1099511628211ULL; return h; } };
+    std::unordered_map<std::vector<uint8_t>, int, H2> fm;
+    for (auto &a : algs) {
+      bool ok = true;
+      for (int p = 0; p < P && ok; p++) if (st.S >> (p / 4) & 1) ok = a.dst[p] / 4 == p / 4;
+      if (!ok) continue;
+      std::vector<uint8_t> d(st.n);
+      bool id = true;
+      for (int i = 0; i < st.n; i++) { d[i] = st.cidx[a.dst[st.pos[i]]]; id &= d[i] == i; }
+      if (id) continue;
+      auto it = fm.find(d);
+      if (it == fm.end()) fm.emplace(std::move(d), a.cost);
+      else it->second = std::min(it->second, a.cost);
+    }
+    std::vector<uint8_t> fT;
+    std::vector<uint8_t> fC;
+    for (auto &kv : fm) { fT.insert(fT.end(), kv.first.begin(), kv.first.end()); fT.resize(fT.size() + 64 - st.n); fC.push_back(kv.second); }
+    // merge mode: refine with the (permutation, first, last) actions, counting the saving between
+    // the path to A(x) and A^-1 (whose first move is the inverse of A's last)
+    const bool mref = mergeMode && !oldSearch;
+    std::vector<uint8_t> fF, fL;
+    if (mref) {
+      fT.clear(), fC.clear();
+      for (auto &a : caFull) {
+        fT.insert(fT.end(), a.d.begin(), a.d.end());
+        fT.resize(fT.size() + 64 - st.n);
+        fC.push_back(a.cost), fF.push_back(a.first), fL.push_back(a.last);
+      }
+    }
+    auto invCode = [](int c) { return c == 54 ? 54 : c - c % 3 + (2 - c % 3); };
+    const size_t FA = fC.size();
+    refineLog = std::string(" refine") + (mref ? " (merging)" : "") + " with " + std::to_string(FA) + " actions:";
+    const std::vector<uint8_t> dist0 = checkRefine ? dist : std::vector<uint8_t>();
+    // band: the top levels, as many as fit refineWork (positions x actions per pass)
+    std::vector<uint64_t> h(256, 0);
+    for (uint64_t r = 0; r < st.total; r++) h[dist[r]]++;
+    int L = maxd;
+    uint64_t inBand = h[maxd];
+    const bool useSymRefine = useSym && !getenv("NOSYMREFINE");
+    const double symDiv = useSymRefine ? ssyms.size() + 1 : 1;  // only canonical positions are visited
+    while (L > 1 && (double)(inBand + h[L - 1]) * FA / symDiv <= refineWork) inBand += h[--L];
+    std::vector<uint64_t> B;
+    for (uint64_t r = 0; r < st.total; r++)
+      if (dist[r] >= L && dist[r] != 0xFF && (!useSymRefine || (canonBits[r >> 6] >> (r & 63) & 1))) B.push_back(r);
+    refineLog += " band " + std::to_string(L) + ".." + std::to_string(maxd) + " (" + std::to_string(B.size()) + (useSym ? " canonical" : "") + " positions)";
+    if ((double)B.size() * FA > 2 * refineWork) refineLog += " too big";
+    else
+      for (int pass = 0; pass < 8; pass++) {
+        // Gauss-Seidel: dist only ever decreases to the length of a real solution, so updating in
+        // place (also concurrently) keeps every value a valid upper bound
+        std::atomic<size_t> next{0}, improved{0};
+        auto work = [&] {
+          uint64_t m[8], t[8];
+          size_t imp = 0;
+          for (size_t i; (i = next++) < B.size();) {
+            const uint64_t r = B[i];
+            int bestd = std::atomic_ref<uint8_t>(dist[r]).load(std::memory_order_relaxed);
+            unrank(st, r, m);
+            if (mref) {
+              // tails are written before distances (release) and read after them (acquire): a reader
+              // may pair a new tail with an old, larger distance (a valid upper bound), never the reverse
+              const int d0 = bestd;
+              uint64_t bits = 0;
+              for (size_t a = 0; a < FA; a++) {
+                if (fC[a] - 2 > bestd) continue;
+                const uint8_t *D = &fT[a * 64];
+                for (int c = 0; c < nc; c++) {
+                  uint64_t x = 0;
+                  for (uint64_t y = m[c]; y; y &= y - 1) x |= 1ULL << D[__builtin_ctzll(y)];
+                  t[c] = x;
+                }
+                const uint64_t q = rankOf(st, t);
+                const int dq = std::atomic_ref<uint8_t>(dist[q]).load(std::memory_order_acquire);
+                const uint64_t tq = std::atomic_ref<uint64_t>(tails[q]).load(std::memory_order_relaxed);
+                const int fi = invCode(fL[a]);
+                const int save = (tq & mergeSame0[fi]) ? 2 : (tq & mergeSame1[fi]) ? 1 : 0;
+                const int v = dq + fC[a] - save;
+                const uint64_t b = 1ULL << invCode(fF[a]);
+                if (v < bestd) bestd = v, bits = b;
+                else if (v == bestd) bits |= b;
+              }
+              auto put = [&](uint64_t q, uint64_t bq) {
+                std::atomic_ref<uint8_t> ad(dist[q]);
+                std::atomic_ref<uint64_t> at(tails[q]);
+                const int cur = ad.load(std::memory_order_relaxed);
+                if (bestd < cur) {
+                  at.store(bq, std::memory_order_relaxed);
+                  ad.store((uint8_t)bestd, std::memory_order_release);
+                  return true;
+                }
+                if (bestd == cur && (bq & ~at.load(std::memory_order_relaxed))) { at.fetch_or(bq, std::memory_order_relaxed); return true; }
+                return false;
+              };
+              bool did = false;
+              if (bestd <= d0 && bits) did = put(r, bits);
+              imp += did;
+              if (did && useSymRefine)
+                for (auto &y : ssyms) {
+                  image(y, m, t);
+                  uint64_t bq = 0;
+                  for (uint64_t z = bits; z; z &= z - 1) bq |= 1ULL << y.mv[__builtin_ctzll(z)];
+                  put(rankOf(st, t), bq);
+                }
+              continue;
+            }
+            for (size_t a = 0; a < FA; a++) {
+              if (fC[a] >= bestd) continue;  // the target may be the goal (distance 0)
+              const uint8_t *D = &fT[a * 64];
+              for (int c = 0; c < nc; c++) {
+                uint64_t x = 0;
+                for (uint64_t y = m[c]; y; y &= y - 1) x |= 1ULL << D[__builtin_ctzll(y)];
+                t[c] = x;
+              }
+              const int v = fC[a] + std::atomic_ref<uint8_t>(dist[rankOf(st, t)]).load(std::memory_order_relaxed);
+              if (v < bestd) bestd = v;
+            }
+            auto lower = [&](uint64_t q) {
+              std::atomic_ref<uint8_t> ar(dist[q]);
+              uint8_t cur = ar.load(std::memory_order_relaxed);
+              bool did = false;
+              while (bestd < cur && !(did = ar.compare_exchange_weak(cur, (uint8_t)bestd, std::memory_order_relaxed))) {}
+              return did;
+            };
+            const bool did = lower(r);
+            imp += did;
+            if (did && useSymRefine)
+              for (auto &y : ssyms) { image(y, m, t); lower(rankOf(st, t)); }
+          }
+          improved += imp;
+        };
+        std::vector<std::thread> th;
+        for (int i = 0; i < nthreads; i++) th.emplace_back(work);
+        for (auto &x : th) x.join();
+        int nm = 0;
+        for (uint64_t r = 0; r < st.total; r++) nm = std::max<int>(nm, dist[r]);
+        refineLog += " pass " + std::to_string(pass + 1) + ": " + std::to_string(improved.load()) + " improved, worst " + std::to_string(nm) + ";";
+        maxd = nm;
+        if (!improved) break;
+      }
+    refineLog += " -> " + std::to_string(maxd);
+    if (checkRefine && !mref) {  // every lowered value needs a witness: an action A with cost(A) + dist(A(x)) <= dist(x)
+      uint64_t bad = 0, m[8], t[8];
+      for (uint64_t r = 0; r < st.total; r++) {
+        if (dist[r] == 0 || dist[r] == dist0[r]) continue;
+        unrank(st, r, m);
+        bool ok = false;
+        for (size_t a = 0; a < FA && !ok; a++) {
+          const uint8_t *D = &fT[a * 64];
+          for (int c = 0; c < nc; c++) { uint64_t x = 0; for (uint64_t y = m[c]; y; y &= y - 1) x |= 1ULL << D[__builtin_ctzll(y)]; t[c] = x; }
+          ok = fC[a] + dist[rankOf(st, t)] <= dist[r];
+        }
+        bad += !ok;
+      }
+      refineLog += " check: " + std::to_string(bad) + " without witness;";
+      if (!ssyms.empty()) {
+        uint64_t asym = 0, asym0 = 0;
+        for (uint64_t r = 0; r < st.total; r++) {
+          unrank(st, r, m);
+          for (auto &y : ssyms) { image(y, m, t); const uint64_t q = rankOf(st, t); asym += dist[q] != dist[r]; asym0 += dist0[q] != dist0[r]; }
+        }
+        refineLog += " asymmetric pairs: before " + std::to_string(asym0) + ", after " + std::to_string(asym) + ";";
+      }
+    }
+  }
+  if (firstMinCap && st.S == 0 && reached == st.total) firstMinPass(st, dist, maxd);
+  if (const char *dd = getenv("DUMPDIST")) {  // debug: the stage's distance array
+    FILE *f = fopen((std::string(dd) + "." + std::to_string(curStage)).c_str(), "wb");
+    fwrite(dist.data(), 1, dist.size(), f);
+    fclose(f);
+  }
+  char buf[512];
+  snprintf(buf, sizeof buf, "%lu states, %ld usable algorithms -> %zu actions%s, %.1fs", (unsigned long)st.total, usable,
+           ca.size(), costCap < 255 ? (" (cost <= " + std::to_string(costCap) + ")").c_str() : "", now() - t0);
+  info = buf + symInfo + fullInfo + refineLog;
+  fullInfo.clear(), symInfo.clear();
+  if (reached == st.total) {  // distance distribution (after refinement)
+    std::vector<uint64_t> h(256, 0);
+    for (uint64_t r = 0; r < st.total; r++) h[dist[r]]++;
+    info += "\n      distances:";
+    for (int d = 0; d < 255; d++) if (h[d]) info += " " + std::to_string(d) + ":" + std::to_string(h[d]);
+  }
+  // every position at the worst distance, if there are not too many
+  if (worstFile && reached == st.total) {
+    uint64_t cnt = 0;
+    for (uint64_t r = 0; r < st.total; r++) cnt += dist[r] == maxd;
+    std::lock_guard<std::mutex> g(worstMu);
+    fprintf(worstFile, "# stage solved %s solve %s: %llu positions at %d%s\n", gname(st.S).c_str(), gname(st.T).c_str(),
+            (unsigned long long)cnt, maxd, cnt > worstLimit ? " (too many, not listed)" : "");
+    if (cnt <= worstLimit) {
+      uint64_t m[8];
+      for (uint64_t r = 0; r < st.total; r++) {
+        if (dist[r] != maxd) continue;
+        unrank(st, r, m);
+        std::string col(P, '.');
+        for (int p = 0; p < P; p++) if (st.S >> (p / 4) & 1) col[p] = 'A' + p / 4;
+        for (size_t c = 0; c < st.tg.size(); c++)
+          for (uint64_t x = m[c]; x; x &= x - 1) col[st.pos[__builtin_ctzll(x)]] = 'A' + st.tg[c];
+        fprintf(worstFile, "%s %s %d %s\n", gname(st.S).c_str(), gname(st.T).c_str(), maxd, col.c_str());
+      }
+    }
+    fflush(worstFile);
+  }
+  if (combineMode) kept.push_back({st, dist, caFull, reached == st.total ? maxd : -1});
+  return reached == st.total ? maxd : -1;
+}
+
+static std::string gname(int mask) {
+  static const char *F = "ULFRBD";
+  std::string s;
+  for (int g = 0; g < G; g++)
+    if (mask >> g & 1) { if (G > 6) s += g < 6 ? 'a' : 'b'; s += F[g % 6]; }
+  return s.empty() ? "-" : s;
+}
+
+// --combine: the colourings whose first stage is at combK in every orientation (combCols) are the
+// only ones that can need combK + max(second stage).  For each, in every orientation, search real
+// action sequences of stage 0 (merges counted as in the stage search) up to combK + slack,
+// children ordered by (cost so far + table distance), and take the least (sequence cost + second-stage distance of the colouring it leaves),
+// stopping as soon as it is within the bound for the other colourings.
+// Returns the bound for the first two stages: max(combK - 1 + M1, worst such colouring).
+static int combineFirstTwo(std::string &log) {
+  const Kept &K0 = kept[0], &K1 = kept[1];
+  const Stage &s0 = K0.st, &s1 = K1.st;
+  const int M1 = K1.maxd, target = combK - 1 + M1;
+  // orientations: distinct preimages of (T0, T1)
+  std::vector<const GSym *> orient;
+  std::vector<std::pair<int, int>> seen;
+  for (auto &gs : gsyms) {
+    int R0 = 0, R1 = 0;
+    for (int q = 0; q < G; q++) { if (s0.T >> gs.gm[q] & 1) R0 |= 1 << q; if (s1.T >> gs.gm[q] & 1) R1 |= 1 << q; }
+    if (std::find(seen.begin(), seen.end(), std::make_pair(R0, R1)) != seen.end()) continue;
+    seen.push_back({R0, R1});
+    orient.push_back(&gs);
+  }
+  auto masksOf = [&](const Stage &st, const int8_t *col, uint64_t *m) {
+    for (size_t c = 0; c < st.tg.size(); c++) m[c] = 0;
+    for (int i = 0; i < st.n; i++)
+      for (size_t c = 0; c < st.tg.size(); c++) if (col[st.pos[i]] == st.tg[c]) m[c] |= 1ULL << i;
+  };
+  if (const char *e = getenv("COMBMAX")) if (combCols.size() > (size_t)atol(e)) combCols.resize(atol(e));  // testing
+  const auto &ca = K0.ca;
+  const int nc0 = s0.tg.size();
+  int worst = target;
+  long nodesTotal = 0;
+  std::vector<int> bests;
+  for (const auto &c0 : combCols) {
+    int best = 255;
+    for (const GSym *g : orient) {
+      if (best <= target) break;
+      std::vector<int8_t> col(P);
+      for (int p = 0; p < P; p++) col[g->sigma[p] % P] = g->gm[c0[p]];
+      for (int slack = 0; slack <= 1 && best > target; slack++) {
+        const int budget = combK + slack;
+        if (budget >= best) break;
+        // depth-first over action sequences; col over all P positions (stage 0 has nothing solved)
+        std::atomic<int> bestA{best};
+        std::atomic<long> nodes{0};
+        std::function<void(const std::vector<int8_t> &, int, int)> dfs = [&](const std::vector<int8_t> &x, int last, int spent) {
+          nodes++;
+          if (bestA.load() <= target) return;
+          uint64_t m[8];
+          masksOf(s0, x.data(), m);
+          const int d = K0.dist[rankOf(s0, m)];
+          if (d == 0) {
+            uint64_t m1[8];
+            masksOf(s1, x.data(), m1);
+            const int v = spent + K1.dist[rankOf(s1, m1)];
+            int b = bestA.load();
+            while (v < b && !bestA.compare_exchange_weak(b, v)) {}
+            return;
+          }
+          // children within the budget allowing a merge (-2) at the next junction, best first
+          std::vector<std::pair<int, uint32_t>> kids;
+          for (uint32_t i = 0; i < ca.size(); i++) {
+            const CAlg &a = ca[i];
+            const uint64_t lb = 1ULL << last;
+            const int save = (lb & mergeSame0[a.first]) ? 2 : (lb & mergeSame1[a.first]) ? 1 : 0;
+            const int sp = spent + a.cost - save;
+            if (sp > budget) continue;
+            uint64_t t[8];
+            for (int c = 0; c < nc0; c++) { uint64_t z = 0; for (uint64_t w = m[c]; w; w &= w - 1) z |= 1ULL << a.d[__builtin_ctzll(w)]; t[c] = z; }
+            const int d2 = K0.dist[rankOf(s0, t)];
+            if (sp + d2 - (d2 && a.last != 54 ? 2 : 0) > budget) continue;  // no merge after an unknown last move
+            kids.push_back({(sp + d2) * 64 + sp, i});
+          }
+          std::sort(kids.begin(), kids.end());
+          std::vector<int8_t> y(P);
+          for (auto &kd : kids) {
+            if (bestA.load() <= target) return;
+            const CAlg &a = ca[kd.second];
+            const int sp = kd.first % 64;
+            for (int i = 0; i < s0.n; i++) y[s0.pos[a.d[i]]] = x[s0.pos[i]];
+            dfs(y, a.last, sp);
+          }
+        };
+        // root: children sorted best first, then explored in parallel in that order
+        uint64_t m[8];
+        masksOf(s0, col.data(), m);
+        std::vector<std::pair<int, uint32_t>> kids;
+        for (uint32_t i = 0; i < ca.size(); i++) {
+          const CAlg &a = ca[i];
+          const int sp = a.cost;
+          if (sp > budget) continue;
+          uint64_t t[8];
+          for (int c = 0; c < nc0; c++) { uint64_t z = 0; for (uint64_t w = m[c]; w; w &= w - 1) z |= 1ULL << a.d[__builtin_ctzll(w)]; t[c] = z; }
+          const int d2 = K0.dist[rankOf(s0, t)];
+          if (sp + d2 - (d2 && a.last != 54 ? 2 : 0) > budget) continue;  // no merge after an unknown last move
+          kids.push_back({(sp + d2) * 64 + sp, i});
+        }
+        std::sort(kids.begin(), kids.end());
+        std::atomic<size_t> nextK{0};
+        auto work = [&]() {
+          std::vector<int8_t> y(P);
+          for (size_t k; (k = nextK++) < kids.size() && bestA.load() > target;) {
+            const CAlg &a = ca[kids[k].second];
+            for (int i = 0; i < s0.n; i++) y[s0.pos[a.d[i]]] = col[s0.pos[i]];
+            dfs(y, a.last, a.cost);
+          }
+        };
+        std::vector<std::thread> th;
+        for (int t = 0; t < nthreads; t++) th.emplace_back(work);
+        for (auto &t : th) t.join();
+        best = std::min(best, bestA.load());
+        nodesTotal += nodes;
+      }
+    }
+    bests.push_back(best);
+    worst = std::max(worst, best);
+  }
+  std::map<int, int> h;
+  for (int b : bests) h[b]++;
+  log = "combine: " + std::to_string(combCols.size()) + " colourings at " + std::to_string(combK) + " in every orientation, " +
+        std::to_string(orient.size()) + " orientations, " + std::to_string(nodesTotal) + " nodes; best totals";
+  for (auto &kv : h) log += " " + std::to_string(kv.first) + ":" + std::to_string(kv.second);
+  log += "; others <= " + std::to_string(combK - 1) + " + " + std::to_string(M1) + " = " + std::to_string(target);
+  return worst;
+}
+
+// --boundary I: stages I (A) and I+1 (B) jointly.  Solving an A-state u by a path P of cost c
+// carries the remaining pieces by a permutation pi_P onto B's positions, so the colourings r of
+// the rest with c + dB(pi_P r) > X are pi_P^-1 of B's states beyond X - c: an explicit small set
+// for the cheapest path, then filtered by every other path found.  A + B <= X is proved when
+// that set empties for every u with dA(u) > X - max(B).  Paths: depth-first over A's actions,
+// best first, up to dA(u) + slack, at most pathCap distinct carries per u.
+static int boundaryPass(size_t I, std::string &log) {
+  const Kept &KA = kept[I], &KB = kept[I + 1];
+  const Stage &sa = KA.st, &sb = KB.st;
+  const int MA = KA.maxd, MB = KB.maxd, nca = sa.tg.size(), ncb = sb.tg.size();
+  const size_t pathCap = boundaryPaths;
+  // B states by distance, descending (as many as needed)
+  std::vector<std::vector<uint64_t>> atB(MB + 1);
+  for (uint64_t r = 0; r < sb.total; r++) if (KB.dist[r] + 8 > MB) atB[KB.dist[r]].push_back(r);  // the top 8 levels at most
+  auto masksA = [&](const int8_t *col, uint64_t *m) {
+    for (int c = 0; c < nca; c++) m[c] = 0;
+    for (int i = 0; i < sa.n; i++) for (int c = 0; c < nca; c++) if (col[sa.pos[i]] == sa.tg[c]) m[c] |= 1ULL << i;
+  };
+  // symmetries of both stages: only canonical A-states need checking (a proof carries over)
+  struct BS { std::vector<uint8_t> fmap; std::vector<int> cmap; };
+  std::vector<BS> bsyms;
+  {
+    auto gapply = [&](const std::vector<int> &g, int mask) { int r = 0; for (int q = 0; q < G; q++) if (mask >> q & 1) r |= 1 << g[q]; return r; };
+    for (auto &gs : gsyms) {
+      if (gapply(gs.gm, sa.S) != sa.S || gapply(gs.gm, sa.T) != sa.T || gapply(gs.gm, sb.T) != sb.T) continue;
+      BS y;
+      bool ident = true;
+      for (int i = 0; i < sa.n; i++) { y.fmap.push_back(sa.cidx[gs.sigma[sa.pos[i]] % P]); ident &= y.fmap.back() == i; }
+      for (int c = 0; c < nca; c++) {
+        int ci = -1;
+        for (int e = 0; e < nca; e++) if (sa.tg[e] == gs.gm[sa.tg[c]]) ci = e;
+        y.cmap.push_back(ci);
+        ident &= ci == c;
+      }
+      if (!ident) bsyms.push_back(y);
+    }
+  }
+  // --eitherorder: a symmetry that swaps the two stages' targets (e.g. a ring <-> b ring) and keeps
+  // what is solved before them; the mirrored order on colouring c costs what the forward order
+  // costs on its image
+  const GSym *swapSym = nullptr;
+  if (eitherOrder) {
+    auto gapply = [&](const std::vector<int> &g, int mask) { int r = 0; for (int q = 0; q < G; q++) if (mask >> q & 1) r |= 1 << g[q]; return r; };
+    for (auto &gs : gsyms)
+      if (gapply(gs.gm, sa.S) == sa.S && gapply(gs.gm, sa.T) == sb.T && gapply(gs.gm, sb.T) == sa.T) { swapSym = &gs; break; }
+    if (!swapSym) { fprintf(stderr, "--eitherorder: no symmetry swaps %s and %s\n", gname(sa.T).c_str(), gname(sb.T).c_str()); exit(1); }
+  }
+  auto canonicalA = [&](uint64_t r) {
+    uint64_t m[8], t[8];
+    unrank(sa, r, m);
+    for (auto &y : bsyms) {
+      for (int c = 0; c < nca; c++) { uint64_t x = 0; for (uint64_t z = m[c]; z; z &= z - 1) x |= 1ULL << y.fmap[__builtin_ctzll(z)]; t[y.cmap[c]] = x; }
+      if (rankOf(sa, t) < r) return false;
+    }
+    return true;
+  };
+  // short actions (cheapest cost classes, at most ~300k) are tried first
+  std::vector<uint32_t> allIdx(KA.ca.size()), shortIdx;
+  for (uint32_t i = 0; i < KA.ca.size(); i++) allIdx[i] = i;
+  {
+    std::map<int, size_t> byC;
+    for (auto &a : KA.ca) byC[a.cost]++;
+    int cs = 0;
+    size_t tot = 0;
+    for (auto &kv : byC) { if (tot + kv.second > 300000 && tot) break; tot += kv.second; cs = kv.first; }
+    for (uint32_t i = 0; i < KA.ca.size(); i++) if (KA.ca[i].cost <= cs) shortIdx.push_back(i);
+  }
+  int X = MA + MB;
+  log = "boundary " + gname(sa.T) + "|" + gname(sb.T) + ":";
+  for (int Xt = MA + MB - 1; Xt >= MA + MB - 6; Xt--) {
+    // A-states that need checking
+    std::vector<uint64_t> us;
+    for (uint64_t r = 0; r < sa.total; r++) if (KA.dist[r] > Xt - MB && (bsyms.empty() || canonicalA(r))) us.push_back(r);
+    if (us.size() > boundaryStates) { log += " " + std::to_string(Xt) + ": " + std::to_string(us.size()) + " A-states, too many;"; break; }
+    if (Xt - MA < MB - 8) { log += " " + std::to_string(Xt) + ": B levels not kept;"; break; }
+    std::atomic<size_t> nextU{0}, failed{0}, pathsTotal{0}, capped{0}, fullUsed{0};
+    std::atomic<bool> stop{false};
+    std::atomic<size_t> doneU{0}, mirrored{0};
+    const double tB = now();
+    auto work = [&]() {
+      for (size_t ui; !stop && (ui = nextU++) < us.size();) {
+        // u as a colouring over P positions: T colours from the state, the rest labelled 16 + position
+        uint64_t m[8];
+        unrank(sa, us[ui], m);
+        std::vector<int8_t> col(P, -1);
+        for (int p = 0; p < P; p++) if (sa.S >> (p / 4) & 1) col[p] = p / 4;
+        for (int i = 0; i < sa.n; i++) col[sa.pos[i]] = 16 + sa.pos[i];
+        for (int c = 0; c < nca; c++) for (uint64_t z = m[c]; z; z &= z - 1) col[sa.pos[__builtin_ctzll(z)]] = sa.tg[c];
+        const int du = KA.dist[us[ui]];
+        // carries: B index -> origin position, cheapest cost per carry
+        std::map<std::vector<uint8_t>, int> carries;
+        // proved: every B state beyond Xt - c1 for the cheapest carry is brought within Xt by another
+        std::vector<uint64_t> *unc = nullptr;  // eitherorder: collect the uncovered B states instead of stopping
+        std::vector<uint8_t> o1copy;
+        auto proved = [&]() -> bool {
+          std::vector<std::pair<int, const std::vector<uint8_t> *>> cv;
+          for (auto &kv : carries) cv.push_back({kv.second, &kv.first});
+          std::sort(cv.begin(), cv.end());
+          if (cv.empty()) return false;
+          const int c1 = cv[0].first;
+          if (c1 + MB <= Xt) return true;
+          const std::vector<uint8_t> &o1 = *cv[0].second;
+          if (unc) o1copy = o1;
+          std::vector<std::vector<uint8_t>> phi;  // per other carry: B index under carry 1 -> under it
+          std::vector<int> pc;
+          for (size_t k = 1; k < cv.size(); k++) {
+            std::vector<int> posOf(P, -1);
+            for (int j = 0; j < sb.n; j++) posOf[(*cv[k].second)[j]] = j;
+            std::vector<uint8_t> f(sb.n);
+            for (int j = 0; j < sb.n; j++) f[j] = posOf[o1[j]];
+            phi.push_back(f);
+            pc.push_back(cv[k].first);
+          }
+          for (int lev = std::max(0, Xt - c1 + 1); lev <= MB; lev++)
+            for (uint64_t rb : atB[lev]) {
+              uint64_t mb[8], t[8];
+              unrank(sb, rb, mb);
+              bool covered = false;
+              for (size_t k = 0; k < phi.size() && !covered; k++) {
+                if (pc[k] + MB <= Xt) { covered = true; break; }
+                for (int c = 0; c < ncb; c++) { uint64_t z = 0; for (uint64_t w = mb[c]; w; w &= w - 1) z |= 1ULL << phi[k][__builtin_ctzll(w)]; t[c] = z; }
+                covered = pc[k] + KB.dist[rankOf(sb, t)] <= Xt;
+              }
+              if (!covered) { if (!unc) return false; unc->push_back(rb); }
+            }
+          return !unc || unc->empty();
+        };
+        bool ok = false;
+        std::map<std::vector<uint8_t>, int> allCarries;  // eitherorder: every carry found
+        long nodes = 0, nodeCap = boundaryNodes;
+        const std::vector<uint32_t> *acts = &shortIdx;
+        std::function<void(const std::vector<int8_t> &, int, int, int)> dfs = [&](const std::vector<int8_t> &x, int last, int spent, int budget) {
+          if (ok || carries.size() >= pathCap || ++nodes > nodeCap) return;
+          uint64_t mm[8];
+          masksA(x.data(), mm);
+          const int d = KA.dist[rankOf(sa, mm)];
+          if (d == 0) {
+            std::vector<uint8_t> org(sb.n);
+            for (int j = 0; j < sb.n; j++) org[j] = x[sb.pos[j]] - 16;
+            auto it = carries.find(org);
+            if (it == carries.end()) {
+              carries.emplace(org, spent);
+              const size_t n = carries.size();
+              if ((n & (n - 1)) == 0 || n % 64 == 0) ok = proved();
+            } else it->second = std::min(it->second, spent);
+            return;
+          }
+          std::vector<std::pair<int, uint32_t>> kids;
+          for (uint32_t i : *acts) {
+            const CAlg &a = KA.ca[i];
+            const uint64_t lb = 1ULL << last;
+            const int save = (lb & mergeSame0[a.first]) ? 2 : (lb & mergeSame1[a.first]) ? 1 : 0;
+            const int sp = spent + a.cost - save;
+            if (sp > budget) continue;
+            uint64_t t[8];
+            for (int c = 0; c < nca; c++) { uint64_t z = 0; for (uint64_t w = mm[c]; w; w &= w - 1) z |= 1ULL << a.d[__builtin_ctzll(w)]; t[c] = z; }
+            const int d2 = KA.dist[rankOf(sa, t)];
+            if (sp + d2 - (d2 && a.last != 54 ? 2 : 0) > budget) continue;  // no merge after an unknown last move
+            kids.push_back({(sp + d2) * 64 + sp, i});
+          }
+          std::sort(kids.begin(), kids.end());
+          std::vector<int8_t> y(P);
+          for (auto &kd : kids) {
+            if (ok || carries.size() >= pathCap) return;
+            const CAlg &a = KA.ca[kd.second];
+            y = x;
+            for (int i = 0; i < sa.n; i++) y[sa.pos[a.d[i]]] = x[sa.pos[i]];
+            dfs(y, a.last, kd.first % 64, budget);
+          }
+        };
+        for (int pass = 0; pass < 2 && !ok; pass++) {  // short actions, then all
+          acts = pass ? &allIdx : &shortIdx;
+          nodeCap = pass ? boundaryFullNodes : boundaryNodes;
+          if (pass && shortIdx.size() == allIdx.size()) break;
+          for (int slack = 0; slack <= boundarySlack && !ok; slack++) {
+            if (du + slack > Xt - (MB - 8)) break;
+            nodes = 0;
+            dfs(col, 54, 0, du + slack);
+            if (!ok) ok = proved();
+            pathsTotal += carries.size();
+            if (carries.size() >= pathCap) capped++;
+            if (eitherOrder) for (auto &kv : carries) { auto it = allCarries.find(kv.first); if (it == allCarries.end()) allCarries.emplace(kv.first, kv.second); else it->second = std::min(it->second, kv.second); }
+            carries.clear();
+          }
+          if (pass && ok) fullUsed++;
+        }
+        if (!ok && eitherOrder) {
+          // the B states no forward carry handles: try the mirrored order (B's target first, then A's)
+          std::vector<uint64_t> uncv;
+          carries = allCarries;
+          unc = &uncv;
+          proved();
+          unc = nullptr;
+          carries.clear();
+          bool all = !o1copy.empty();
+          for (uint64_t rb : uncv) {
+            if (!all) break;
+            // start colouring: u's tracked colours, the rest from B state rb through carry 1
+            std::vector<int8_t> c0 = col;
+            uint64_t mb[8];
+            unrank(sb, rb, mb);
+            for (int c = 0; c < ncb; c++) for (uint64_t w = mb[c]; w; w &= w - 1) c0[o1copy[__builtin_ctzll(w)]] = sb.tg[c];
+            bool full = true;
+            for (int p = 0; p < P; p++) full &= c0[p] < 16;  // every free piece now has a colour
+            if (!full) { all = false; break; }
+            std::vector<int8_t> c1(P);
+            for (int p = 0; p < P; p++) c1[swapSym->sigma[p] % P] = c0[p] < 0 ? -1 : swapSym->gm[c0[p]];
+            // forward on the image: A paths, then B's distance; done when some total <= Xt
+            uint64_t mu[8];
+            masksA(c1.data(), mu);
+            const int du1 = KA.dist[rankOf(sa, mu)];
+            int bestT = 255;
+            long nd = 0, cap = 0;
+            const std::vector<uint32_t> *ac = &shortIdx;
+            std::function<void(const std::vector<int8_t> &, int, int, int)> fwd = [&](const std::vector<int8_t> &x, int last, int spent, int budget) {
+              if (bestT <= Xt || ++nd > cap) return;
+              uint64_t mm[8];
+              masksA(x.data(), mm);
+              if (KA.dist[rankOf(sa, mm)] == 0) {
+                uint64_t m2[8] = {0};
+                for (int j = 0; j < sb.n; j++) for (int c = 0; c < ncb; c++) if (x[sb.pos[j]] == sb.tg[c]) m2[c] |= 1ULL << j;
+                bestT = std::min(bestT, spent + KB.dist[rankOf(sb, m2)]);
+                return;
+              }
+              std::vector<std::pair<int, uint32_t>> kids;
+              for (uint32_t i : *ac) {
+                const CAlg &a = KA.ca[i];
+                const uint64_t lb = 1ULL << last;
+                const int sp = spent + a.cost - ((lb & mergeSame0[a.first]) ? 2 : (lb & mergeSame1[a.first]) ? 1 : 0);
+                if (sp > budget) continue;
+                uint64_t t[8];
+                for (int c = 0; c < nca; c++) { uint64_t z = 0; for (uint64_t w = mm[c]; w; w &= w - 1) z |= 1ULL << a.d[__builtin_ctzll(w)]; t[c] = z; }
+                const int d2 = KA.dist[rankOf(sa, t)];
+                if (sp + d2 - (d2 && a.last != 54 ? 2 : 0) > budget) continue;
+                kids.push_back({(sp + d2) * 64 + sp, i});
+              }
+              std::sort(kids.begin(), kids.end());
+              std::vector<int8_t> y(P);
+              for (auto &kd : kids) {
+                const CAlg &a = KA.ca[kd.second];
+                y = x;
+                for (int i = 0; i < sa.n; i++) y[sa.pos[a.d[i]]] = x[sa.pos[i]];
+                fwd(y, a.last, kd.first % 64, budget);
+                if (bestT <= Xt) return;
+              }
+            };
+            for (int pass = 0; pass < 2 && bestT > Xt; pass++) {
+              ac = pass ? &allIdx : &shortIdx;
+              cap = pass ? boundaryFullNodes : boundaryNodes;
+              for (int slack = 0; slack <= boundarySlack + 1 && bestT > Xt; slack++) { nd = 0; fwd(c1, 54, 0, du1 + slack); }
+            }
+            all = bestT <= Xt;
+          }
+          ok = all;
+          if (ok) mirrored++;
+        }
+        if (!ok) { failed++; stop = true; }
+        const size_t dn = ++doneU;
+        if (dn % 1000 == 0 || dn == us.size()) { fprintf(stderr, "  boundary %d: %zu / %zu A-states (%.0fs)\n", Xt, dn, us.size(), now() - tB); }
+      }
+    };
+    std::vector<std::thread> th;
+    for (int t = 0; t < nthreads; t++) th.emplace_back(work);
+    for (auto &t : th) t.join();
+    log += " " + std::to_string(Xt) + ": " + std::to_string(us.size()) + (bsyms.empty() ? "" : " canonical") + " A-states, " + std::to_string(pathsTotal.load()) + " carries" +
+           (fullUsed ? " (" + std::to_string(fullUsed.load()) + " needed all actions)" : "") +
+           (capped ? " (" + std::to_string(capped.load()) + " capped)" : "") + (mirrored ? " (" + std::to_string(mirrored.load()) + " by the mirrored order)" : "") + (failed ? ", fails;" : ", proved;");
+    if (failed) break;
+    X = Xt;
+  }
+  log += " -> " + std::to_string(X);
+  // BOUNDARYCHECK=N: N random (hard u, random rest colouring) pairs, solved directly on the
+  // coloured positions; the best (path cost + B distance) found must be within X
+  if (const char *bc = getenv("BOUNDARYCHECK"); bc && X < MA + MB) {
+    std::vector<uint64_t> us;
+    for (uint64_t r = 0; r < sa.total; r++) if (KA.dist[r] > X - MB) us.push_back(r);
+    std::mt19937_64 rng(12345);
+    int worstSeen = 0, n = atoi(bc);
+    for (int it = 0; it < n; it++) {
+      uint64_t m[8];
+      unrank(sa, us[rng() % us.size()], m);
+      std::vector<int8_t> col(P, -1);
+      for (int p = 0; p < P; p++) if (sa.S >> (p / 4) & 1) col[p] = p / 4;
+      std::vector<int> rest;
+      for (int i = 0; i < sa.n; i++) {
+        int c = -1;
+        for (int k = 0; k < nca; k++) if (m[k] >> i & 1) c = sa.tg[k];
+        if (c >= 0) col[sa.pos[i]] = c; else rest.push_back(sa.pos[i]);
+      }
+      // the rest gets the colours of the untracked groups (their home groups), shuffled within
+      // each orbit (pieces never leave their orbit)
+      for (int o = 0; o < P / 24; o++) {
+        std::vector<int8_t> cols;
+        std::vector<int> rp;
+        for (int p = 24 * o; p < 24 * o + 24; p++) if (!(sa.S >> (p / 4) & 1) && !(sa.T >> (p / 4) & 1)) cols.push_back(p / 4);
+        for (int p : rest) if (p / 24 == o) rp.push_back(p);
+        if (cols.size() != rp.size()) { fprintf(stderr, "boundary check: colour count mismatch\n"); exit(1); }
+        std::shuffle(cols.begin(), cols.end(), rng);
+        for (size_t k = 0; k < rp.size(); k++) col[rp[k]] = cols[k];
+      }
+      uint64_t mu[8];
+      masksA(col.data(), mu);
+      const int du = KA.dist[rankOf(sa, mu)];
+      int best = 255;
+      long nodes = 0;
+      std::function<void(const std::vector<int8_t> &, int, int, int)> dfs = [&](const std::vector<int8_t> &x, int last, int spent, int budget) {
+        if (best <= X || ++nodes > 200000) return;
+        uint64_t mm[8];
+        masksA(x.data(), mm);
+        if (KA.dist[rankOf(sa, mm)] == 0) {
+          uint64_t mb[8] = {0};
+          for (int j = 0; j < sb.n; j++) for (int c = 0; c < ncb; c++) if (x[sb.pos[j]] == sb.tg[c]) mb[c] |= 1ULL << j;
+          best = std::min(best, spent + KB.dist[rankOf(sb, mb)]);
+          return;
+        }
+        std::vector<std::pair<int, uint32_t>> kids;
+        for (uint32_t i = 0; i < KA.ca.size(); i++) {
+          const CAlg &a = KA.ca[i];
+          const uint64_t lb = 1ULL << last;
+          const int sp = spent + a.cost - ((lb & mergeSame0[a.first]) ? 2 : (lb & mergeSame1[a.first]) ? 1 : 0);
+          if (sp > budget) continue;
+          uint64_t t[8];
+          for (int c = 0; c < nca; c++) { uint64_t z = 0; for (uint64_t w = mm[c]; w; w &= w - 1) z |= 1ULL << a.d[__builtin_ctzll(w)]; t[c] = z; }
+          const int d2 = KA.dist[rankOf(sa, t)];
+          if (sp + d2 - (d2 && a.last != 54 ? 2 : 0) > budget) continue;  // no merge after an unknown last move
+          kids.push_back({(sp + d2) * 64 + sp, i});
+        }
+        std::sort(kids.begin(), kids.end());
+        std::vector<int8_t> y(P);
+        for (auto &kd : kids) {
+          const CAlg &a = KA.ca[kd.second];
+          y = x;
+          for (int i = 0; i < sa.n; i++) y[sa.pos[a.d[i]]] = x[sa.pos[i]];
+          dfs(y, a.last, kd.first % 64, budget);
+          if (best <= X) return;
+        }
+      };
+      for (int slack = 0; slack <= boundarySlack + 1 && best > X; slack++) { nodes = 0; dfs(col, 54, 0, du + slack); }
+      if (best > X && swapSym) {  // the mirrored order
+        std::vector<int8_t> c1(P);
+        for (int p = 0; p < P; p++) c1[swapSym->sigma[p] % P] = col[p] < 0 ? -1 : swapSym->gm[col[p]];
+        uint64_t m1[8];
+        masksA(c1.data(), m1);
+        const int d1 = KA.dist[rankOf(sa, m1)];
+        for (int slack = 0; slack <= boundarySlack + 1 && best > X; slack++) { nodes = 0; dfs(c1, 54, 0, d1 + slack); }
+      }
+      worstSeen = std::max(worstSeen, best);
+      if (best > X) { fprintf(stderr, "boundary check: sample %d best %d > %d\n", it, best, X); break; }
+    }
+    log += " (check: " + std::to_string(n) + " random hard colourings, worst found " + std::to_string(worstSeen) + ")";
+  }
+  return X;
+}
+
+int main(int argc, char **argv) {
+  printf("#");
+  for (int i = 0; i < argc; i++) printf(" %s", argv[i]);
+  printf("\n");
+  int maxCost = 99, ai = 1;
+  std::string plan, planStart;
+  bool diagOk = false, faceTurns = false;
+  long faceStripped = 0;
+  int conjSliceMin = 0;
+  std::vector<std::pair<std::array<uint8_t, 50>, uint8_t>> conjSrc;  // --conjslice sources (single: partner intact)
+  int conjRounds = 0, pairSingleCost = 0, pairSingleCap = 4000;
+  // --pairsingle C: pair algorithms (cost <= C) that move the partner, grouped by the partner's
+  // colour arrangement they leave; A then C^-1 for A, C in one group restores the partner
+  std::vector<std::pair<std::array<uint8_t, 50>, uint8_t>> pairAlgs;
+  for (; ai < argc && argv[ai][0] == '-'; ai++) {
+    std::string o = argv[ai];
+    if (o == "--maxstates" && ai + 1 < argc) maxStates = atof(argv[++ai]);
+    else if (o == "--maxcost" && ai + 1 < argc) maxCost = atoi(argv[++ai]);
+    else if (o == "--short" && ai + 1 < argc) shortCost = atoi(argv[++ai]);
+    else if (o == "--budget" && ai + 1 < argc) edgeBudget = atof(argv[++ai]);
+    else if (o == "--plan" && ai + 1 < argc) plan = argv[++ai];
+    else if (o == "--planstart" && ai + 1 < argc) planStart = argv[++ai];
+    else if (o == "--diagok") diagOk = true;
+    else if (o == "--faceturns") faceTurns = true;
+    else if (o == "--merge") mergeMode = true;
+    else if (o == "--refine") refineMode = true;
+    else if (o == "--fullwork" && ai + 1 < argc) fullWork = atof(argv[++ai]);
+    else if (o == "--stagebudget" && ai + 1 < argc) { std::string v = argv[++ai]; stageBudget[atoi(v.c_str())] = atof(v.c_str() + v.find(':') + 1); }
+    else if (o == "--oldsearch") oldSearch = true;
+    else if (o == "--noprefetch") noPrefetch = true;
+    else if (o == "--slowrank") fastRankOn = false;
+    else if (o == "--nosym") symOn = false;
+    else if (o == "--combine") combineMode = true;
+    else if (o == "--boundary" && ai + 1 < argc) { boundaryAt = atoi(argv[++ai]); combineMode = true; }
+    else if (o == "--boundarypaths" && ai + 1 < argc) boundaryPaths = atof(argv[++ai]);
+    else if (o == "--boundarystates" && ai + 1 < argc) boundaryStates = atof(argv[++ai]);
+    else if (o == "--boundaryslack" && ai + 1 < argc) boundarySlack = atoi(argv[++ai]);
+    else if (o == "--eitherorder") eitherOrder = true;
+    else if (o == "--boundarynodes" && ai + 1 < argc) boundaryNodes = atof(argv[++ai]);
+    else if (o == "--boundaryfullnodes" && ai + 1 < argc) boundaryFullNodes = atof(argv[++ai]);
+    else if (o == "--firstmin" && ai + 1 < argc) firstMinCap = atof(argv[++ai]);
+    else if (o == "--checkrefine") checkRefine = true;
+    else if (o == "--conjslice" && ai + 1 < argc) conjSliceMin = atoi(argv[++ai]);
+    else if (o == "--conj" && ai + 1 < argc) conjRounds = atoi(argv[++ai]);
+    else if (o == "--pairsingle" && ai + 1 < argc) pairSingleCost = atoi(argv[++ai]);
+    else if (o == "--pairsinglecap" && ai + 1 < argc) pairSingleCap = atoi(argv[++ai]);
+    else if (o == "--refinework" && ai + 1 < argc) refineWork = atof(argv[++ai]);
+    else if (o == "--worst" && ai + 1 < argc) {
+      worstFile = fopen(argv[++ai], "w");
+      if (!worstFile) { fprintf(stderr, "cannot write %s\n", argv[ai]); return 1; }
+    }
+    else { fprintf(stderr, "unknown option %s\n", o.c_str()); return 1; }
+  }
+  if (argc - ai < 2) {
+    fprintf(stderr, "usage: orbitbound [--maxstates N] [--maxcost C] [--short C] [--budget E] [--plan T1,T2,..] [--diagok] [--worst FILE] [--merge] [--refine] diag|mid|single|free|pair POOL.cls...\n");
+    return 1;
+  }
+  for (int i = 0; i <= 64; i++) for (int k = 0; k <= 5; k++) binom[i][k] = k == 0 ? 1 : i == 0 ? 0 : binom[i - 1][k - 1] + binom[i - 1][k];
+  nthreads = std::max(1u, std::thread::hardware_concurrency());
+  const std::string kind = argv[ai++];
+  if (kind != "diag" && kind != "mid" && kind != "single" && kind != "free" && kind != "pair") { fprintf(stderr, "unknown kind %s\n", kind.c_str()); return 1; }
+  OrbitModel m = kind == "mid" ? midModel() : kind == "diag" ? diagModel() : pairModel();
+  gModel = &m;
+  P = kind == "pair" ? 48 : 24;
+  G = P / 4;
+  // all algorithm images, deduplicated by permutation (cheapest kept)
+  struct H { size_t operator()(const std::array<uint8_t, 50> &v) const { size_t h = 1469598103934665603ULL; for (auto c : v) h = (h ^ c) * 1099511628211ULL; return h; } };
+  std::unordered_map<std::array<uint8_t, 50>, uint8_t, H> best;  // perm (48) + first, last move (merge mode)
+  std::unordered_map<std::array<uint8_t, 50>, Src, H> bestSrc;  // EXAMPLE: source of each entry
+  exampleOn = getenv("EXAMPLE") != nullptr;
+  auto code = [&](const Move &mv) { int layer = mv.depth; if (kind == "diag" && layer == 3) layer = 2; return (mv.face * 3 + layer - 1) * 3 + mv.amt - 1; };
+  mergeSame0[54] = mergeSame1[54] = 0;
+  for (int f = 0; f < 54; f++) {
+    mergeSame0[f] = mergeSame1[f] = 0;
+    for (int g = 0; g < 54; g++)
+      if (g / 3 == f / 3) { if ((g % 3 + 1 + f % 3 + 1) % 4 == 0) mergeSame0[f] |= 1ULL << g; else mergeSame1[f] |= 1ULL << g; }
+  }
+  for (; ai < argc; ai++) {
+    pools.emplace_back();
+    ClassPool &cp = pools.back();
+    const int fileIdx = pools.size() - 1;
+    // FILE@GROUPS: keep only the images that leave GROUPS (e.g. UD, aUaDbUbD) colour-solved
+    std::string fname = argv[ai];
+    int keepMask = 0;
+    if (size_t at = fname.find('@'); at != std::string::npos) {
+      const std::string gs = fname.substr(at + 1);
+      fname = fname.substr(0, at);
+      for (size_t i = 0; i < gs.size(); i++) {
+        int o = 0;
+        if (gs[i] == 'a' || gs[i] == 'b') o = gs[i++] == 'b';
+        const int f = std::string("ULFRBD").find(gs[i]);
+        if (f < 0 || f > 5 || 6 * o >= G) { fprintf(stderr, "bad pool filter %s\n", gs.c_str()); return 1; }
+        keepMask |= 1 << (6 * o + f);
+      }
+    }
+    if (!cp.load(fname.c_str())) { fprintf(stderr, "cannot read %s\n", fname.c_str()); return 1; }
+    size_t before = best.size();
+    long skipped = 0;
+    const bool pairPool = kind == "single" || kind == "free" || kind == "pair";
+    cp.expand(m, [&](const uint8_t *src, int c, uint32_t ref) {
+      if (c > maxCost) return;
+      if (pairPool && !diagOk && cp.dflag[ref / 96]) { skipped++; return; }  // also moves the diagonal orbit
+      std::array<uint8_t, 50> d{};
+      for (int j = 0; j < m.P; j++) d[src[j]] = j;  // src[j]: the piece now at j came from src[j]
+      if (keepMask) {
+        for (int p = 0; p < 48; p++) if ((keepMask >> (p / 4) & 1) && d[p] / 4 != p / 4) { skipped++; return; }
+      }
+      if (mergeMode || conjRounds || pairSingleCost || conjSliceMin || faceTurns) {
+        auto mv = m.image(cp.rep[ref / 96], ref % 96);
+        d[48] = code(mv.front()), d[49] = code(mv.back());
+      }
+      if (kind == "free") for (int p = 24; p < 48; p++) d[p] = 0;  // partner orbit ignored
+      if (kind == "single") {
+        // the partner orbit (positions 24..47) must stay colour-solved
+        bool keeps = true;
+        for (int p = 24; p < 48 && keeps; p++) keeps = d[p] / 4 == p / 4;
+        if (!keeps && pairSingleCost && c <= pairSingleCost) pairAlgs.push_back({d, (uint8_t)c});
+        if (!keeps) { skipped++; return; }
+        if (conjSliceMin && c >= conjSliceMin) conjSrc.push_back({d, (uint8_t)c});
+        for (int p = 24; p < 48; p++) d[p] = 0;
+      }
+      auto it = best.find(d);
+      if (it == best.end()) { best.emplace(d, (uint8_t)c); if (exampleOn) bestSrc[d] = {fileIdx, ref, 0, 0}; }
+      else if (c < it->second) { it->second = c; if (exampleOn) bestSrc[d] = {fileIdx, ref, 0, 0}; }
+      if (faceTurns) {
+        // the algorithm without any of its leading and trailing outer face turns: those turns keep
+        // every centre on its face, so what is left is legal too (and keeps what the whole keeps)
+        auto mv = m.image(cp.rep[ref / 96], ref % 96);
+        const int n = mv.size();
+        int L = 0, T = 0;
+        while (L < n && mv[L].depth == 1) L++;
+        while (T < n && mv[n - 1 - T].depth == 1) T++;
+        if (L == n || c != n) return;  // cost = length (single-layer metric)
+        for (int i = 0; i <= L; i++)
+          for (int j = 0; j <= T; j++) {
+            if (i + j == 0) continue;
+            std::vector<Move> sub(mv.begin() + i, mv.end() - j);
+            auto q = m.permOf(sub);
+            std::array<uint8_t, 50> e{};
+            for (int x = 0; x < m.P; x++) e[q[x]] = x;
+            if (kind == "free" || kind == "single") for (int p = 24; p < 48; p++) e[p] = 0;
+            e[48] = code(sub.front()), e[49] = code(sub.back());
+            const int ce = c - i - j;
+            faceStripped++;
+            auto jt = best.find(e);
+            if (jt == best.end()) { best.emplace(e, (uint8_t)ce); if (exampleOn) bestSrc[e] = {fileIdx, ref, (uint8_t)i, (uint8_t)j}; }
+            else if (ce < jt->second) { jt->second = ce; if (exampleOn) bestSrc[e] = {fileIdx, ref, (uint8_t)i, (uint8_t)j}; }
+          }
+      }
+    }, false);  // every image: with --merge, images with the same permutation differ in first/last move
+    printf("%s: %zu new permutations (total %zu; %ld images skipped)\n", argv[ai], best.size() - before, best.size(), skipped);
+    fflush(stdout);
+  }
+  if (pairSingleCost && kind == "single") {
+    std::unordered_map<std::string, std::vector<uint32_t>> grp;
+    for (uint32_t i = 0; i < pairAlgs.size(); i++) {
+      const auto &d = pairAlgs[i].first;
+      std::string key(24, 0);
+      for (int s2 = 24; s2 < 48; s2++) key[d[s2] - 24] = s2 / 4;  // group of the piece now at d[s2]
+      grp[key].push_back(i);
+    }
+    size_t made = 0, groupsUsed = 0, before = best.size();
+    auto invC = [](int c) { return c == 54 ? 54 : c - c % 3 + (2 - c % 3); };
+    for (auto &kv : grp) {
+      const auto &v = kv.second;
+      if (v.size() < 2 || v.size() > (size_t)pairSingleCap) continue;
+      groupsUsed++;
+      for (uint32_t ia : v)
+        for (uint32_t ic : v) {
+          if (ia == ic) continue;
+          const auto &A = pairAlgs[ia].first, &C = pairAlgs[ic].first;
+          uint8_t Ci[48];
+          for (int q = 0; q < 48; q++) Ci[C[q]] = q;
+          std::array<uint8_t, 50> k{};
+          bool ok = true, id = true;
+          for (int p = 24; p < 48 && ok; p++) ok = Ci[A[p]] / 4 == p / 4;
+          if (!ok) continue;
+          for (int p = 0; p < 24; p++) { k[p] = Ci[A[p]]; id &= k[p] == p; }
+          if (id) continue;
+          const int al = A[49], cf = invC(C[49]);  // C^-1 starts with the inverse of C's last move
+          int save = 0;
+          if (al != 54 && cf != 54 && al / 3 == cf / 3) save = ((al % 3 + 1 + cf % 3 + 1) % 4 == 0) ? 2 : 1;
+          const int cost = pairAlgs[ia].second + pairAlgs[ic].second - save;
+          k[48] = A[48], k[49] = invC(C[48]);
+          made++;
+          auto it = best.find(k);
+          if (it == best.end()) best.emplace(k, (uint8_t)cost);
+          else if (cost < it->second) it->second = cost;
+        }
+    }
+    printf("pair-single: %zu pair algorithms, %zu groups (%zu used), %zu compositions, %zu -> %zu entries\n", pairAlgs.size(),
+           grp.size(), groupsUsed, made, before, best.size());
+    fflush(stdout);
+    pairAlgs.clear();
+  }
+  if (conjSliceMin) {
+    if (kind != "single" && kind != "free" && kind != "pair") { fprintf(stderr, "--conjslice: single, free or pair only\n"); return 1; }
+    auto oneOrbitSolved = [](const std::array<uint8_t, 50> &d) {
+      bool a = true, b = true;
+      for (int p = 0; p < 48; p++) (p < 24 ? a : b) &= d[p] / 4 == p / 4;
+      return a || b;
+    };
+    if (kind != "single")
+      for (auto &kv : best)
+        if (kv.second >= conjSliceMin && (kind == "free" || oneOrbitSolved(kv.first))) conjSrc.push_back(kv);
+    std::vector<std::vector<uint8_t>> Xd(54);
+    for (int c = 0; c < 54; c++) {
+      const auto &src = m.mv(c / 9, c / 3 % 3 + 1, c % 3 + 1);
+      Xd[c].resize(m.P);
+      for (int j = 0; j < m.P; j++) Xd[c][src[j]] = j;
+    }
+    const size_t before = best.size();
+    size_t made = 0;
+    for (auto &e : conjSrc) {
+      const int fc = e.first[48], lc = e.first[49];
+      for (int xc = 0; xc < 54; xc++) {
+        const int a = xc % 3 + 1, ia = 4 - a, xic = xc - xc % 3 + ia - 1;
+        int sF = 0, nf = xc, sL = 0, nl = xic;
+        if (fc != 54 && fc / 3 == xc / 3) {
+          const int sum = (fc % 3 + 1 + a) % 4;
+          if (sum == 0) sF = 2, nf = 54; else sF = 1, nf = xc / 3 * 3 + sum - 1;
+        }
+        if (lc != 54 && lc / 3 == xic / 3) {
+          const int sum = (lc % 3 + 1 + ia) % 4;
+          if (sum == 0) sL = 2, nl = 54; else sL = 1, nl = xic / 3 * 3 + sum - 1;
+        }
+        const int nc = e.second + 2 - sF - sL;
+        if (nc > 255 || nc < 1) continue;
+        const auto &X = Xd[xc], &Xi = Xd[xic];
+        std::array<uint8_t, 50> k{};
+        const int lim = kind == "free" ? 24 : 48;
+        for (int p = 0; p < lim; p++) k[p] = Xi[e.first[X[p]]];
+        if (kind == "pair" && !oneOrbitSolved(k)) continue;
+        if (kind == "single") {
+          bool keeps = true;
+          for (int p = 24; p < 48 && keeps; p++) keeps = k[p] / 4 == p / 4;
+          if (!keeps) continue;
+          for (int p = 24; p < 48; p++) k[p] = 0;
+        }
+        k[48] = nf, k[49] = nl;
+        made++;
+        auto it = best.find(k);
+        if (it == best.end()) best.emplace(k, (uint8_t)nc);
+        else if (nc < it->second) it->second = nc;
+      }
+    }
+    printf("slice conjugation: %zu sources (cost >= %d), %zu conjugates, %zu -> %zu entries\n", conjSrc.size(), conjSliceMin, made, before, best.size());
+    fflush(stdout);
+    conjSrc.clear();
+  }
+  // --conj K: K rounds of conjugation by every outer face turn X: X A X^-1 changes only what A
+  // changes (an outer turn moves no other centre pieces off their face).  Cost: cost(A) + 2 less
+  // the merges of X with A's first move and of X^-1 with A's last; after a full cancellation the
+  // new end move is unknown (code 54, never merges), which is conservative.
+  for (int round = 0; round < conjRounds; round++) {
+    std::vector<std::pair<std::array<uint8_t, 50>, uint8_t>> cur(best.begin(), best.end());
+    size_t before = best.size();
+    std::vector<std::vector<uint8_t>> Xd(18);
+    for (int f = 0; f < 6; f++)
+      for (int a = 1; a <= 3; a++) {
+        const auto &src = m.mv(f, 1, a);
+        std::vector<uint8_t> d(m.P);
+        for (int j = 0; j < m.P; j++) d[src[j]] = j;
+        Xd[f * 3 + a - 1] = d;
+      }
+    for (auto &e : cur) {
+      const int fc = e.first[48], lc = e.first[49];
+      for (int f = 0; f < 6; f++)
+        for (int a = 1; a <= 3; a++) {
+          const int xc = (f * 3 + 0) * 3 + a - 1, ia = 4 - a, xic = (f * 3 + 0) * 3 + ia - 1;
+          int sF = 0, nf = xc, sL = 0, nl = xic;
+          if (fc != 54 && fc / 3 == xc / 3) {
+            const int sum = (fc % 3 + 1 + a) % 4;
+            if (sum == 0) sF = 2, nf = 54; else sF = 1, nf = xc / 3 * 3 + sum - 1;
+          }
+          if (lc != 54 && lc / 3 == xic / 3) {
+            const int sum = (lc % 3 + 1 + ia) % 4;
+            if (sum == 0) sL = 2, nl = 54; else sL = 1, nl = xic / 3 * 3 + sum - 1;
+          }
+          const int nc = e.second + 2 - sF - sL;
+          if (nc > 255 || nc < 1) continue;
+          const auto &X = Xd[f * 3 + a - 1], &Xi = Xd[f * 3 + ia - 1];
+          std::array<uint8_t, 50> k{};
+          for (int p = 0; p < P; p++) k[p] = Xi[e.first[X[p]]];
+          k[48] = nf, k[49] = nl;
+          auto it = best.find(k);
+          if (it == best.end()) best.emplace(k, (uint8_t)nc);
+          else if (nc < it->second) it->second = nc;
+        }
+    }
+    printf("conjugation round %d: %zu -> %zu entries\n", round + 1, before, best.size());
+    fflush(stdout);
+  }
+  if (faceTurns) {
+    // code 54 at both ends: a merge with a one-move action would change what the path's last move
+    // is, so none is counted
+    for (int f = 0; f < 6; f++)
+      for (int a = 1; a <= 3; a++) {
+        const auto &src = m.mv(f, 1, a);
+        std::array<uint8_t, 50> k{};
+        for (int j = 0; j < m.P; j++) k[src[j]] = j;
+        if (kind == "free" || kind == "single") for (int p = 24; p < 48; p++) k[p] = 0;
+        k[48] = k[49] = 54;
+        best[k] = 1;
+        if (exampleOn) bestSrc[k] = {-1, (uint32_t)(f * 3 + a - 1), 0, 0};
+      }
+    printf("face turns: 18 actions of cost 1; %ld images with outer face turns stripped at the ends\n", faceStripped);
+  }
+  for (auto &kv : best) {
+    Alg a;
+    a.dst.assign(kv.first.begin(), kv.first.begin() + P);
+    a.cost = kv.second;
+    a.first = kv.first[48], a.last = kv.first[49];
+    if (exampleOn) {
+      auto st = bestSrc.find(kv.first);
+      if (st != bestSrc.end()) { a.src = srcs.size(); srcs.push_back(st->second); }
+    }
+    bool id = true;
+    for (int p = 0; p < P && id; p++) id = a.dst[p] == p;
+    if (!id) algs.push_back(a);
+  }
+  std::map<int, long> byCost;
+  for (auto &a : algs) byCost[a.cost]++;
+  printf("%zu algorithms; by cost:", algs.size());
+  for (auto &kv : byCost) printf(" %d:%ld", kv.first, kv.second);
+  printf("\n");
+  minAlgCost = byCost.begin()->first;
+  // group maps of the symmetries (positions of a group go to one group)
+  for (size_t s = 0; s < m.syms.size(); s++) {
+    std::vector<int> g(G);
+    bool ok = true;
+    for (int q = 0; q < G; q++) {
+      int p0 = m.sigma[s][4 * q] % 48;
+      g[q] = p0 / 4;
+      for (int k = 1; k < 4; k++) ok &= (int)m.sigma[s][4 * q + k] / 4 == g[q];
+      if (P == 24 && g[q] >= 6) ok = false;  // single: symmetries that swap the orbits are not usable
+    }
+    if (ok) {
+      gmap.push_back(g);
+      GSym gs;
+      gs.gm = g;
+      for (int p = 0; p < P; p++) gs.sigma.push_back(m.sigma[s][p]);
+      for (int c = 0; c < 54; c++) {
+        const int face = c / 9, layer = c / 3 % 3, amt = c % 3 + 1;
+        const int na = m.syms[s].refl ? 4 - amt : amt;
+        gs.moveMap[c] = (m.syms[s].face[face] * 3 + layer) * 3 + na - 1;
+      }
+      gs.moveMap[54] = 54;
+      gsyms.push_back(gs);
+    }
+  }
+  printf("%zu group symmetries\n", gmap.size());
+  fflush(stdout);
+  auto apply = [&](const std::vector<int> &g, int mask) { int r = 0; for (int q = 0; q < G; q++) if (mask >> q & 1) r |= 1 << g[q]; return r; };
+  auto canon = [&](int S, int T) {
+    std::pair<int, int> b{S, T};
+    for (auto &g : gmap) b = std::min(b, std::make_pair(apply(g, S), apply(g, T)));
+    return b;
+  };
+  // remaining groups per orbit; done when every orbit has at most one left
+  const int nOrb = G / 6;
+  auto done = [&](int S) {
+    for (int o = 0; o < nOrb; o++) if (6 - __builtin_popcount(S >> (6 * o) & 63) > 1) return false;
+    return true;
+  };
+  auto closeOrbits = [&](int S) {  // an orbit with one group left is solved
+    for (int o = 0; o < nOrb; o++) if (6 - __builtin_popcount(S >> (6 * o) & 63) == 1) S |= 63 << (6 * o);
+    return S;
+  };
+  std::map<std::pair<int, int>, int> memoM;
+  std::map<int, std::pair<int, int>> memoB;  // S -> (bound, T)
+  std::function<int(int)> B = [&](int S) -> int {
+    S = closeOrbits(S);
+    if (done(S)) return 0;
+    auto it = memoB.find(S);
+    if (it != memoB.end()) return it->second.first;
+    const int all = (1 << G) - 1, rest = all & ~S;
+    int bestv = 1 << 28, bestT = 0;
+    for (int T = rest; T; T = (T - 1) & rest) {
+      // a T leaving exactly one group of an orbit is the same as T taking it too
+      bool redundant = false;
+      for (int o = 0; o < nOrb; o++) {
+        int left = (rest & ~T) >> (6 * o) & 63;
+        if (__builtin_popcount(left) == 1 && (T >> (6 * o) & 63)) redundant = true;
+      }
+      if (redundant) continue;
+      Stage st = makeStage(S, T);
+      if (st.total > maxStates || st.tg.size() > 8) continue;
+      auto key = canon(S, T);
+      int mv;
+      auto mi = memoM.find(key);
+      if (mi != memoM.end()) mv = mi->second;
+      else {
+        std::string info;
+        Stage cs = makeStage(key.first, key.second);
+        mv = solveStage(cs, info);
+        if (mv < 0) mv = 1 << 20;
+        memoM[key] = mv;
+        printf("  M(solved %s, solve %s) = %d   (%s)\n", gname(key.first).c_str(), gname(key.second).c_str(), mv, info.c_str());
+        fflush(stdout);
+      }
+      int v = mv + B(S | T);
+      if (v < bestv) bestv = v, bestT = T;
+    }
+    memoB[S] = {bestv, bestT};
+    return bestv;
+  };
+  if (!plan.empty()) {
+    int S = 0, sum = 0;
+    for (size_t i = 0; i < planStart.size(); i++) {  // --planstart: groups already solved
+      int o = 0;
+      if (planStart[i] == 'a' || planStart[i] == 'b') o = planStart[i++] == 'b';
+      const int f = std::string("ULFRBD").find(planStart[i]);
+      if (f < 0 || f > 5 || 6 * o >= G) { fprintf(stderr, "bad --planstart %s\n", planStart.c_str()); return 1; }
+      S |= 1 << (6 * o + f);
+    }
+    if (S) printf("  starting with %s solved (the bound below covers only the remaining stages)\n", gname(S).c_str());
+    size_t p = 0;
+    while (p < plan.size()) {
+      size_t q = plan.find(',', p);
+      if (q == std::string::npos) q = plan.size();
+      std::string tok = plan.substr(p, q - p);
+      int T = 0;
+      for (size_t i = 0; i < tok.size(); i++) {
+        int o = 0;
+        if (tok[i] == 'a' || tok[i] == 'b') o = tok[i++] == 'b';
+        int f = std::string("ULFRBD").find(tok[i]);
+        if (f < 0 || f > 5 || 6 * o >= G) { fprintf(stderr, "bad plan token %s\n", tok.c_str()); return 1; }
+        T |= 1 << (6 * o + f);
+      }
+      T &= ~S;
+      Stage st = makeStage(S, T);
+      std::string info;
+      curStage++;
+      int mv = solveStage(st, info);
+      printf("  M(solved %s, solve %s) = %d   (%s)\n", gname(S).c_str(), gname(T).c_str(), mv, info.c_str());
+      fflush(stdout);
+      if (mv < 0) { printf("plan fails: stage not solvable\n"); return 1; }
+      sum += mv;
+      S = closeOrbits(S | T);
+      p = q + 1;
+    }
+    if (boundaryAt >= 0 && (size_t)boundaryAt + 1 < kept.size()) {
+      std::string log;
+      const int two = boundaryPass(boundaryAt, log);
+      printf("  %s (was %d)\n", log.c_str(), kept[boundaryAt].maxd + kept[boundaryAt + 1].maxd);
+      sum += two - kept[boundaryAt].maxd - kept[boundaryAt + 1].maxd;
+    } else if (combineMode && kept.size() >= 2 && planStart.empty() && combK >= 0 && combTruncated && !getenv("COMBMAX")) {
+      printf("  combine: more than %zu colourings, too many\n", combCap);
+      sum += combK - kept[0].maxd;
+    } else if (combineMode && kept.size() >= 2 && planStart.empty() && combK >= 0) {
+      std::string log;
+      const int two = combineFirstTwo(log);
+      printf("  %s -> first two stages %d (was %d)\n", log.c_str(), two, kept[0].maxd + kept[1].maxd);
+      sum += two - kept[0].maxd - kept[1].maxd;
+    } else if (combK >= 0) {
+      sum += combK - kept[0].maxd;  // firstmin alone
+    }
+    if (!done(S)) { printf("plan does not solve everything (solved %s)\n", gname(S).c_str()); return 1; }
+    printf("plan bound: %d moves\n", sum);
+    return 0;
+  }
+  int b = B(0);
+  printf("bound: %d moves; stages:", b);
+  for (int S = 0; !done(closeOrbits(S));) {
+    S = closeOrbits(S);
+    int T = memoB[S].second;
+    if (!T) { printf(" (no stage within --maxstates)"); break; }
+    auto key = canon(S, T);
+    printf(" %s(%d)", gname(T).c_str(), memoM[key]);
+    S |= T;
+  }
+  printf("\n");
+}

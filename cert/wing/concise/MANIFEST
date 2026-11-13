@@ -1,0 +1,17 @@
+Wing orbit certificate, concise form (2026-11-06).  W = 162 = 32 + 32 + 40 + 58.
+
+actions.txt: 5,332 wing algorithms, one per line (certcube move text; depth 2 = the wing orbit's slice depth),
+one per distinct permutation of the 24 wings, the cheapest; each keeps every centre colour-solved and leaves
+corners, midges and the other wing orbits in place.  They are the wing3_cp, wing_d6c_cp, wing_d8_cp,
+parity_cp and conj_cp pools (certruns/wing-centres-kept/pools) expanded under the 48 cube symmetries and
+inversion, as wingbound did for cert/wing/centres-kept (wingbound8 ACTIONS=FILE writes this list).
+
+Stages, wings named 'a' + k in certcube.h's wingFacelets order (6x6x6, depth 2):
+  none..abcd                    255,024 positions, worst 32
+  abcd..efgh                    116,280 positions, worst 32
+  abcdefgh..ijklm               524,160 positions, worst 40
+  abcdefghijklm..nopqrstuvwx 39,916,800 positions, worst 58
+Rule: a stage uses the algorithms that keep its placed wings home; a Dijkstra search from the goal over
+the stage positions, each algorithm costing its move count, reaches every position within the worst
+above.  A position's solving sequence is the algorithms along its path, concatenated.
+Expanded by certsolve (certrest.h WingStage::build); equivalent to cert/wing/centres-kept (4.6 GB).

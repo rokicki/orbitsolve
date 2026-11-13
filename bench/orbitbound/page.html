@@ -1,0 +1,497 @@
+<title>Centre Orbit Bounds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column (~70ch) with full-width figure rows for nets, charts and the verifier console. */
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --fg: #1d2330; --muted: #5d6676; --rule: #d9dde4;
+  --accent: #1f6f78; --accent-soft: #e2f0f1; --good: #2f7d32; --bad: #b3261e; --warn: #9a6700;
+  --cU: #ffffff; --cL: #ff8a1f; --cF: #22a447; --cR: #d7262e; --cB: #1f5fd1; --cD: #ffd400;
+  --sticker-edge: #1d2330; --dim: #c9ced8;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "Source Sans 3", "Segoe UI", "Helvetica Neue", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --panel: #1a2029; --fg: #e5e9f0; --muted: #9aa4b5; --rule: #2c3442;
+  --accent: #5cc3cc; --accent-soft: #1d3236; --good: #6fcf73; --bad: #ff8a80; --warn: #e0b341;
+  --sticker-edge: #0b0e13; --dim: #3a4352; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --panel: #1a2029; --fg: #e5e9f0; --muted: #9aa4b5; --rule: #2c3442;
+  --accent: #5cc3cc; --accent-soft: #1d3236; --good: #6fcf73; --bad: #ff8a80; --warn: #e0b341;
+  --sticker-edge: #0b0e13; --dim: #3a4352; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 17px/1.6 var(--body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; }
+.col { max-width: 70ch; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.7rem; font-weight: 700; margin-top: 56px; }
+h3 { font-size: 1.2rem; font-weight: 500; margin-top: 28px; }
+p { margin: 12px 0; }
+.eyebrow { font: 600 0.78rem/1 var(--body); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.lede { font-size: 1.2rem; color: var(--fg); }
+.muted { color: var(--muted); }
+code, .mono { font-family: var(--mono); font-size: 0.88em; }
+a { color: var(--accent); }
+.big { display: flex; flex-wrap: wrap; gap: 28px; margin: 28px 0 8px; align-items: flex-end; }
+.big .n { font: 700 4.4rem/1 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.big .vs { font: 500 1.1rem/1.3 var(--body); color: var(--muted); max-width: 30ch; }
+.stagebar { display: flex; gap: 4px; margin: 18px 0 6px; flex-wrap: wrap; }
+.stagebar div { padding: 10px 14px; background: var(--accent-soft); border-radius: 6px; min-width: 0; }
+.stagebar b { font: 700 1.5rem/1 var(--display); display: block; font-variant-numeric: tabular-nums; }
+.stagebar span { font-size: 0.85rem; color: var(--muted); }
+.row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; margin: 18px 0; }
+.row > * { min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; }
+.net { display: inline-block; }
+.net svg { display: block; max-width: 100%; height: auto; }
+.cap { font-size: 0.88rem; color: var(--muted); margin-top: 6px; max-width: 46ch; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 4px 12px 4px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 600; font-size: 0.85rem; color: var(--muted); }
+.scroll { overflow-x: auto; max-width: 100%; }
+.algs { font-family: var(--mono); font-size: 0.82rem; columns: 2 300px; column-gap: 28px; margin: 10px 0; }
+.algs div { break-inside: avoid; padding: 1px 0; }
+.algs i { font-style: normal; color: var(--muted); display: inline-block; width: 2.4ch; text-align: right; margin-right: 1ch; }
+details { margin: 10px 0; }
+summary { cursor: pointer; font-weight: 600; }
+summary:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: 600 0.92rem var(--body); color: var(--bg); background: var(--accent); border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+button.ghost { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+.console { font: 0.82rem/1.5 var(--mono); background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; min-height: 3em; white-space: pre-wrap; overflow-x: auto; }
+.ok { color: var(--good); font-weight: 600; } .fail { color: var(--bad); font-weight: 600; } .note { color: var(--warn); }
+.chart svg { display: block; max-width: 100%; height: auto; }
+.moves { font-family: var(--mono); font-size: 0.85rem; line-height: 1.9; }
+.moves span { padding: 1px 3px; border-radius: 3px; }
+.moves span.cur { background: var(--accent); color: var(--bg); }
+.moves .sep { color: var(--muted); padding: 0 6px; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+.controls label { font-size: 0.9rem; color: var(--muted); }
+select { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; padding: 5px 8px; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 18px; }
+.tabs button { background: transparent; color: var(--fg); border: 1px solid var(--rule); }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="col">
+    <div class="eyebrow">Big-cube centres · upper bounds</div>
+    <h1 id="headline">Every X-centre scramble can be solved in 54 moves</h1>
+    <p class="lede" id="lede"></p>
+  </div>
+  <div class="tabs" id="tabs" role="tablist"></div>
+  <div id="orbit"></div>
+</div>
+
+<script type="application/json" id="data">/*DATA*/</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("data").textContent);
+const FACES = "ULFRBD";
+const COLVAR = ["--cU", "--cL", "--cF", "--cR", "--cB", "--cD"];
+
+// ---------- cube model: N x N x N, stickers as (position, normal) in doubled coordinates ----------
+const NORMAL = { U: [0, 1, 0], D: [0, -1, 0], F: [0, 0, 1], B: [0, 0, -1], R: [1, 0, 0], L: [-1, 0, 0] };
+function faceOfNormal(n) { for (const f of FACES) { const m = NORMAL[f]; if (m[0] === n[0] && m[1] === n[1] && m[2] === n[2]) return FACES.indexOf(f); } return -1; }
+// sticker (face, r, c) -> cubie coordinates 0..N-1 (x: L->R, y: D->U, z: B->F)
+function cubie(N, f, r, c) {
+  const M = N - 1;
+  switch (FACES[f]) {
+    case "U": return [c, M, r];
+    case "F": return [c, M - r, M];
+    case "R": return [M, M - r, M - c];
+    case "B": return [M - c, M - r, 0];
+    case "L": return [0, M - r, c];
+    case "D": return [c, 0, M - r];
+  }
+}
+function makeCube(N) {
+  if (makeCube.cache[N]) return makeCube.cache[N];
+  const stickers = [], index = new Map();
+  const key = (q, n) => q.join(",") + "|" + n.join(",");
+  for (let f = 0; f < 6; f++) for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const p = cubie(N, f, r, c), q = p.map(v => 2 * v - (N - 1)), n = NORMAL[FACES[f]];
+    index.set(key(q, n), stickers.length);
+    stickers.push({ f, r, c, q, n });
+  }
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  // quarter turn clockwise (seen from the face) of layer d (1 = outer): dst[i] = where sticker i goes
+  const moveCache = new Map();
+  function move(f, d) {
+    const k = f * 1000 + d;
+    if (moveCache.has(k)) return moveCache.get(k);
+    const a = NORMAL[FACES[f]], level = (N - 1) - 2 * (d - 1);
+    const dst = new Int32Array(stickers.length);
+    stickers.forEach((s, i) => {
+      if (dot(s.q, a) !== level) { dst[i] = i; return; }
+      const rot = v => { const ax = cross(a, v), va = dot(v, a); return [va * a[0] - ax[0], va * a[1] - ax[1], va * a[2] - ax[2]]; };
+      dst[i] = index.get(key(rot(s.q), rot(s.n)));
+    });
+    moveCache.set(k, dst);
+    return dst;
+  }
+  return (makeCube.cache[N] = { N, stickers, move, size: stickers.length });
+}
+makeCube.cache = {};
+
+// ---------- moves and algorithms ----------
+// token: [depth]Face[2|'] ; depth placeholders map to real layers per orbit kind
+function parseAlg(s) {
+  return s.trim().split(/\s+/).filter(Boolean).map(t => {
+    const m = /^(\d*)([ULFRBD])(2|'|)$/.exec(t);
+    if (!m) throw new Error("bad move " + t);
+    return { d: m[1] ? +m[1] : 1, f: FACES.indexOf(m[2]), a: m[3] === "2" ? 2 : m[3] === "'" ? 3 : 1 };
+  });
+}
+function moveText(m) { return (m.d > 1 ? m.d : "") + FACES[m.f] + (m.a === 2 ? "2" : m.a === 3 ? "'" : ""); }
+function algText(ms) { return ms.map(moveText).join(" "); }
+function invert(ms) { return ms.slice().reverse().map(m => ({ d: m.d, f: m.f, a: (4 - m.a) & 3 })); }
+
+// 48 cube symmetries as signed permutation matrices
+const SYMS = (() => {
+  const perms = [[0, 1, 2], [0, 2, 1], [1, 0, 2], [1, 2, 0], [2, 0, 1], [2, 1, 0]], r = [];
+  for (const p of perms) for (let s = 0; s < 8; s++) {
+    const M = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    for (let i = 0; i < 3; i++) M[i][p[i]] = (s >> i & 1) ? -1 : 1;
+    const det = M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+    const face = [];
+    for (let f = 0; f < 6; f++) { const n = NORMAL[FACES[f]]; face.push(faceOfNormal([0, 1, 2].map(i => M[i][0] * n[0] + M[i][1] * n[1] + M[i][2] * n[2]))); }
+    r.push({ face, refl: det < 0 });
+  }
+  return r;
+})();
+function symImage(ms, s) { const S = SYMS[s]; return ms.map(m => ({ d: m.d, f: S.face[m.f], a: S.refl ? (4 - m.a) & 3 : m.a })); }
+
+// orbit geometry per kind: the face positions (r, c) of the orbit, and real layer of each depth placeholder
+const KINDS = {
+  diag: { name: "X-centres", sizes: [4, 5, 6, 7, 9], show: 5, cells: N => [[1, 1], [1, N - 2], [N - 2, N - 2], [N - 2, 1]], depth: (N, d) => d },
+  mid: { name: "T-centres", sizes: [5, 7, 9], show: 5, cells: N => { const m = (N - 1) / 2; return [[1, m], [m, N - 2], [N - 2, m], [m, 1]]; }, depth: (N, d) => d === 3 ? (N + 1) / 2 : d },
+  oblique: { name: "oblique centres", sizes: [6, 7, 8, 10], show: 6, cells: N => [[1, 2], [2, N - 2], [N - 2, N - 3], [N - 3, 1]], depth: (N, d) => d },
+};
+function orbitOf(kind, N) {
+  const K = KINDS[kind], cube = makeCube(N), pos = [];
+  for (let f = 0; f < 6; f++) for (const [r, c] of K.cells(N)) pos.push(f * N * N + r * N + c);
+  return { cube, pos, posIndex: new Map(pos.map((s, i) => [s, i])) };
+}
+function realMoves(kind, N, ms) { return ms.map(m => ({ ...m, d: KINDS[kind].depth(N, m.d) })); }
+// apply moves to a colour array (colours by sticker), returning a new array
+function applyColours(cube, col, ms) {
+  let cur = col;
+  for (const m of ms) for (let t = 0; t < m.a; t++) {
+    const dst = cube.move(m.f, m.d), nx = new Uint8Array(cur.length);
+    for (let i = 0; i < cur.length; i++) nx[dst[i]] = cur[i];
+    cur = nx;
+  }
+  return cur;
+}
+function solvedColours(cube) { return Uint8Array.from(cube.stickers, s => s.f); }
+// permutation of the 24 orbit positions (dst form) for real-layer moves
+function orbitPerm(orb, ms) {
+  let dst = Array.from({ length: 24 }, (_, i) => i);
+  for (const m of ms) for (let t = 0; t < m.a; t++) {
+    const mv = orb.cube.move(m.f, m.d);
+    dst = dst.map(p => orb.posIndex.get(mv[orb.pos[p]]));
+  }
+  return dst;
+}
+
+// ---------- drawing a face net ----------
+function netSVG(N, col, opts = {}) {
+  const cell = opts.cell || (N <= 5 ? 14 : N <= 7 ? 11 : 8), gap = 4, F = N * cell + gap;
+  const at = { U: [1, 0], L: [0, 1], F: [1, 1], R: [2, 1], B: [3, 1], D: [1, 2] };
+  const css = getComputedStyle(document.documentElement);
+  const colour = c => c < 0 ? css.getPropertyValue("--dim") : css.getPropertyValue(COLVAR[c]);
+  let s = `<svg viewBox="0 0 ${4 * F} ${3 * F}" width="${4 * F}" height="${3 * F}" role="img" aria-label="cube net">`;
+  for (let f = 0; f < 6; f++) {
+    const [gx, gy] = at[FACES[f]];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      const i = f * N * N + r * N + c, v = col[i], hi = opts.mark && opts.mark.has(i);
+      s += `<rect x="${gx * F + c * cell + 0.5}" y="${gy * F + r * cell + 0.5}" width="${cell - 1}" height="${cell - 1}" rx="1.5" fill="${colour(v)}" stroke="${css.getPropertyValue("--sticker-edge")}" stroke-width="${hi ? 1.6 : 0.6}" opacity="${opts.fade && !opts.fade.has(i) ? 0.28 : 1}"/>`;
+    }
+  }
+  return s + "</svg>";
+}
+
+// ---------- stage state spaces (same encoding idea as the offline program) ----------
+const BIN = []; for (let i = 0; i <= 32; i++) { BIN.push([]); for (let k = 0; k <= 5; k++) BIN[i].push(k === 0 ? 1 : i === 0 ? 0 : BIN[i - 1][k - 1] + BIN[i - 1][k]); }
+function popc(x) { x -= (x >>> 1) & 0x55555555; x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24; }
+function faceMask(str) { let m = 0; for (const ch of str) if (ch !== "-") m |= 1 << FACES.indexOf(ch); return m; }
+function makeStage(S, T) {
+  const pos = [], cidx = new Array(24).fill(-1);
+  for (let p = 0; p < 24; p++) if (!(S >> (p >> 2) & 1)) { cidx[p] = pos.length; pos.push(p); }
+  const tg = []; for (let g = 0; g < 6; g++) if (T >> g & 1) tg.push(g);
+  const n = pos.length, radix = []; let total = 1;
+  tg.forEach((_, c) => { radix.push(BIN[n - 4 * c][4]); total *= radix[c]; });
+  return { S, T, n, pos, cidx, tg, radix, total };
+}
+function rankOf(st, m) {
+  let r = 0, taken = 0;
+  for (let c = 0; c < st.tg.length; c++) {
+    const avail = ((1 << st.n) - 1) & ~taken; let sub = 0, k = 0;
+    for (let x = m[c]; x; x &= x - 1) { const low = x & -x; sub += BIN[popc(avail & (low - 1))][++k]; }
+    r = r * st.radix[c] + sub; taken |= m[c];
+  }
+  return r;
+}
+function unrank(st, r, m) {
+  const nc = st.tg.length, sub = [];
+  for (let c = nc - 1; c >= 0; c--) { sub[c] = r % st.radix[c]; r = Math.floor(r / st.radix[c]); }
+  let taken = 0;
+  for (let c = 0; c < nc; c++) {
+    const ai = []; for (let i = 0; i < st.n; i++) if (!(taken >> i & 1)) ai.push(i);
+    let s = sub[c], mm = 0, hi = ai.length;
+    for (let k = 4; k >= 1; k--) { let v = k - 1; while (v + 1 < hi && BIN[v + 1][k] <= s) v++; s -= BIN[v][k]; mm |= 1 << ai[v]; hi = v; }
+    m[c] = mm; taken |= mm;
+  }
+}
+// the actions of a stage: every symmetry/inverse image of every listed class that keeps
+// the solved faces solved, as a map on the free positions (cheapest kept per map)
+function stageActions(kind, st, classes) {
+  const orb = orbitOf(kind, KINDS[kind].show), seen = new Map();
+  for (const [cost, text] of classes) {
+    const base = parseAlg(text);
+    for (let s = 0; s < 48; s++) for (const inv of [false, true]) {
+      const ms = symImage(inv ? invert(base) : base, s);
+      const dst = orbitPerm(orb, realMoves(kind, orb.cube.N, ms));
+      let ok = true;
+      for (let p = 0; p < 24 && ok; p++) if (st.S >> (p >> 2) & 1) ok = (dst[p] >> 2) === (p >> 2);
+      if (!ok) continue;
+      const d = st.pos.map(p => st.cidx[dst[p]]);
+      if (d.every((v, i) => v === i)) continue;
+      const key = d.join(",");
+      const prev = seen.get(key);
+      if (!prev || cost < prev.cost) seen.set(key, { d, cost, moves: ms });
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.cost - b.cost);
+}
+
+// ---------- page ----------
+const el = (tag, attrs = {}, html = "") => { const e = document.createElement(tag); for (const k in attrs) e.setAttribute(k, attrs[k]); e.innerHTML = html; return e; };
+function histChart(hist, worst) {
+  const keys = Object.keys(hist).map(Number).sort((a, b) => a - b), maxD = worst, total = keys.reduce((s, k) => s + hist[k], 0);
+  const W = 420, H = 150, L = 34, B = 26, bw = (W - L - 6) / (maxD + 1);
+  const maxLog = Math.log10(Math.max(...keys.map(k => hist[k])) + 1);
+  const css = getComputedStyle(document.documentElement), fg = css.getPropertyValue("--muted"), ac = css.getPropertyValue("--accent"), rule = css.getPropertyValue("--rule");
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="distance histogram">`;
+  for (const t of [1, 10, 100, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8]) {
+    if (Math.log10(t + 1) > maxLog * 1.02) break;
+    const y = H - B - (H - B - 8) * Math.log10(t + 1) / maxLog;
+    s += `<line x1="${L}" x2="${W - 4}" y1="${y}" y2="${y}" stroke="${rule}" stroke-width="0.6"/><text x="${L - 4}" y="${y + 3}" text-anchor="end" font-size="9" fill="${fg}">${t >= 1e6 ? t / 1e6 + "M" : t >= 1e3 ? t / 1e3 + "k" : t}</text>`;
+  }
+  for (const k of keys) {
+    const h = (H - B - 8) * Math.log10(hist[k] + 1) / maxLog, x = L + k * bw;
+    s += `<rect x="${x + 1}" y="${H - B - h}" width="${Math.max(1, bw - 2)}" height="${h}" fill="${ac}"><title>${k} moves: ${hist[k].toLocaleString()} positions</title></rect>`;
+  }
+  for (let k = 0; k <= maxD; k += maxD > 30 ? 4 : 2) s += `<text x="${L + k * bw + bw / 2}" y="${H - B + 13}" text-anchor="middle" font-size="9" fill="${fg}">${k}</text>`;
+  s += `<text x="${L + (W - L) / 2}" y="${H - 3}" text-anchor="middle" font-size="9.5" fill="${fg}">moves needed (log-scale count of ${total.toLocaleString()} positions)</text>`;
+  return s + "</svg>";
+}
+
+function render(oi) {
+  const O = DATA[oi], K = KINDS[O.kind], root = document.getElementById("orbit");
+  document.querySelectorAll("#tabs button").forEach((b, i) => b.setAttribute("aria-selected", i === oi ? "true" : "false"));
+  document.getElementById("headline").textContent = O.headline;
+  document.getElementById("lede").innerHTML = O.lede;
+  const N = K.show, orb = orbitOf(O.kind, N), cube = orb.cube, solved = solvedColours(cube);
+  const orbitSet = new Set(orb.pos);
+  const stageNames = O.stages.map(s => s.solve.length === 1 ? `${s.solve} face` : `${s.solve.split("").join(", ")} together`);
+  let h = "";
+  h += `<div class="big"><div class="n">${O.bound}</div><div class="vs">moves, at most, for any scramble of the ${K.name}. The easy commutator bound is 144.</div></div>`;
+  h += `<div class="stagebar">` + O.stages.map((s, i) => `<div><b>${s.worst}</b><span>stage ${i + 1}: ${stageNames[i]}</span></div>`).join(`<div style="background:none;padding:10px 2px"><b>+</b></div>`) + `<div style="background:none;padding:10px 2px"><b>=</b></div><div><b>${O.bound}</b><span>total</span></div></div>`;
+
+  h += `<h2>The puzzle</h2><div class="row"><div class="net">${netSVG(N, Array.from(solved, (c, i) => orbitSet.has(i) ? c : -1), { mark: orbitSet })}</div>
+    <div class="col" style="flex:1 1 320px">${O.puzzle}</div></div>`;
+
+  h += `<h2>The method: three stages</h2><div class="col">${O.method}</div>`;
+  O.stages.forEach((s, i) => {
+    const st = makeStage(faceMask(s.solved), faceMask(s.solve));
+    h += `<h3>Stage ${i + 1}: ${stageNames[i]}${s.solved !== "-" ? ` (with ${s.solved.split("").join(" and ")} already solved)` : ""}</h3>`;
+    h += `<div class="row"><div class="chart">${histChart(s.hist, s.worst)}</div><div class="col" style="flex:1 1 280px">
+      <p><b>${s.states.toLocaleString()}</b> possible positions for this stage. Every one of them is solved in at most <b>${s.worst}</b> moves using the
+      ${s.classes.length} algorithms listed below (with their mirror images, rotations and inverses).</p>
+      <p class="muted">${s.note || ""}</p></div></div>`;
+    h += `<details><summary>The ${s.classes.length} algorithms for stage ${i + 1}</summary>
+      <p class="muted">Each line stands for up to 96 algorithms: the line itself, its inverse, and every rotation or reflection of the cube applied to either.
+      Moves: <code>U</code> turns the U face, <code>2U</code> the second layer below it, <code>U2</code> is a half turn; every turn counts as one move.</p>
+      <div class="algs">${s.classes.map(([c, t]) => `<div><i>${c}</i>${t}</div>`).join("")}</div></details>`;
+    h += `<details><summary>A hardest position for stage ${i + 1} (${s.worst} moves)</summary><div id="worst${i}"></div></details>`;
+  });
+
+  h += `<h2>Check it yourself</h2><div class="col"><p>Everything below runs in your browser with its own cube simulator. Nothing here trusts the program that found the algorithms.</p></div>
+    <div class="controls"><button id="chkAlg">Check every algorithm on real cubes</button>${O.stages.map((s, i) => `<button class="ghost" id="chkSt${i}">Check stage ${i + 1} exhaustively${s.states > 2e7 ? " (slow)" : ""}</button>`).join("")}</div>
+    <div class="console" id="console">Ready.</div>`;
+
+  h += `<h2>Example solves</h2><div class="col"><p>Each scramble below is a random sequence of 40 short algorithms that only move the ${K.name}.
+    The solution is what the three stages produce. Step through it on the cube.</p></div>
+    <div class="controls"><label for="exSel">Example</label><select id="exSel">${O.examples.map((e, i) => `<option value="${i}">#${i + 1}: ${e.stages.map(x => x.reduce((s, a) => s + parseAlg(a).length, 0)).join(" + ")} moves</option>`).join("")}</select>
+      <button class="ghost" id="exPrev">Back</button><button id="exNext">Step</button><button class="ghost" id="exEnd">To end</button><button class="ghost" id="exStart">To start</button></div>
+    <div class="row"><div class="net" id="exNet"></div><div style="flex:1 1 360px;min-width:0"><div id="exInfo" class="cap"></div><div class="moves" id="exMoves"></div>
+    <details><summary>Scramble (${O.examples[0] ? parseAlg(O.examples[0].scramble).length : 0} moves)</summary><p class="moves" id="exScr"></p></details></div></div>`;
+
+  h += `<h2>Notes</h2><div class="col">${O.notes}</div>`;
+  root.innerHTML = h;
+
+  // hardest positions
+  O.stages.forEach((s, i) => {
+    const sol = s.worstSolution.map(parseAlg);
+    // the position: undo the solution from a solved cube (computed here, by the simulator)
+    let pos = solved;
+    for (const a of sol.slice().reverse()) pos = applyColours(cube, pos, realMoves(O.kind, N, invert(a)));
+    const want = faceMask(s.solved) | faceMask(s.solve);
+    let after = pos; for (const a of sol) after = applyColours(cube, after, realMoves(O.kind, N, a));
+    let good = true; for (let i2 = 0; i2 < after.length; i2++) good = good && after[i2] === solved[i2];
+    for (let i2 = 0; i2 < pos.length; i2++) if (!orbitSet.has(i2)) good = good && pos[i2] === solved[i2];
+    // pieces of colours this stage neither keeps nor solves are drawn grey
+    const col = Array.from(pos, (c, i2) => orbitSet.has(i2) && (want >> c & 1) ? c : -1);
+    const total = sol.reduce((a, b) => a + b.length, 0);
+    document.getElementById("worst" + i).innerHTML = `<div class="row"><div class="net">${netSVG(N, col)}</div><div style="flex:1 1 300px;min-width:0">
+      <p class="cap">Grey: pieces this stage does not care about yet. The solution, one algorithm per line (${total} moves):</p>
+      <div class="moves">${s.worstSolution.map(a => `<div>${a}</div>`).join("")}</div>
+      <p class="${good ? "ok" : "fail"}">${good ? "Checked by the simulator: the position changes only the " + K.name + ", and the solution solves it." : "Check FAILED"}</p></div></div>`;
+  });
+
+  // verifier
+  const con = document.getElementById("console");
+  const log = (s, cls) => { con.innerHTML += "\n" + (cls ? `<span class="${cls}">${s}</span>` : s); con.scrollTop = con.scrollHeight; };
+  document.getElementById("chkAlg").onclick = () => {
+    con.textContent = "Checking algorithms on full cubes (corners, edges and every centre)...";
+    setTimeout(() => {
+      const all = new Map(); O.stages.forEach(s => s.classes.forEach(([c, t]) => all.set(t, c)));
+      let bad = 0, n = 0;
+      for (const Nn of K.sizes) {
+        const cb = makeCube(Nn), orbN = orbitOf(O.kind, Nn), oset = new Set(orbN.pos), sol = solvedColours(cb);
+        let badN = 0, lenBad = 0;
+        for (const [t, c] of all) {
+          const ms = parseAlg(t);
+          if (ms.length !== c) lenBad++;
+          const after = applyColours(cb, sol, realMoves(O.kind, Nn, ms));
+          for (let i = 0; i < after.length; i++) if (after[i] !== sol[i] && !oset.has(i)) { badN++; break; }
+          n++;
+        }
+        bad += badN + lenBad;
+        log(`${Nn}x${Nn}x${Nn}: ${all.size} algorithms, ${badN ? badN + " disturb other pieces" : "none disturbs anything outside the " + K.name}${lenBad ? `, ${lenBad} with wrong length` : ""}`, badN || lenBad ? "fail" : "ok");
+      }
+      log(bad ? "Some checks FAILED." : "All algorithms change only the " + K.name + ", and every listed length is the real move count.", bad ? "fail" : "ok");
+      log("Rotations, reflections and inverses of a pure algorithm are pure too, so this covers every image.", "muted");
+    }, 30);
+  };
+  O.stages.forEach((s, i) => {
+    document.getElementById("chkSt" + i).onclick = () => runStage(O, i, log, con);
+  });
+
+  // examples
+  const exSel = document.getElementById("exSel");
+  let ex, steps, at, start;
+  const loadEx = () => {
+    ex = O.examples[+exSel.value];
+    const scr = realMoves(O.kind, N, parseAlg(ex.scramble));
+    start = applyColours(cube, solved, scr);
+    steps = [];
+    ex.stages.forEach((algs, si) => algs.forEach((a, ai) => parseAlg(a).forEach((m, mi) => steps.push({ m, si, ai, mi }))));
+    at = 0;
+    document.getElementById("exScr").textContent = ex.scramble;
+    let cur = start; for (const s of steps) cur = applyColours(cube, cur, realMoves(O.kind, N, [s.m]));
+    let ok = true; for (let i2 = 0; i2 < cur.length; i2++) ok = ok && cur[i2] === solved[i2];
+    let pure = true; for (let i2 = 0; i2 < start.length; i2++) if (!orbitSet.has(i2) && start[i2] !== solved[i2]) pure = false;
+    ex.ok = ok && pure;
+    draw();
+  };
+  const draw = () => {
+    let cur = start; for (let k = 0; k < at; k++) cur = applyColours(cube, cur, realMoves(O.kind, N, [steps[k].m]));
+    document.getElementById("exNet").innerHTML = netSVG(N, cur, { fade: orbitSet });
+    const counts = ex.stages.map(x => x.reduce((s, a) => s + parseAlg(a).length, 0));
+    document.getElementById("exInfo").innerHTML = `Move ${at} of ${steps.length}. Stage moves: ${counts.join(" + ")} = ${steps.length} (bounds ${O.stages.map(s => s.worst).join(" + ")} = ${O.bound}). ` +
+      (ex.ok ? `<span class="ok">Checked: the scramble only moves ${K.name}, and the solution solves it.</span>` : `<span class="fail">Check failed.</span>`);
+    let k = 0, html = "";
+    ex.stages.forEach((algs, si) => {
+      html += `<div><b>Stage ${si + 1}</b> `;
+      algs.forEach(a => { html += "<span class='sep'>(</span>"; parseAlg(a).forEach(m => { html += `<span class="${k === at - 1 ? "cur" : ""}">${moveText(m)}</span> `; k++; }); html += "<span class='sep'>)</span>"; });
+      if (!algs.length) html += "<span class='muted'>already done</span>";
+      html += "</div>";
+    });
+    document.getElementById("exMoves").innerHTML = html;
+  };
+  exSel.onchange = loadEx;
+  document.getElementById("exNext").onclick = () => { if (at < steps.length) at++; draw(); };
+  document.getElementById("exPrev").onclick = () => { if (at > 0) at--; draw(); };
+  document.getElementById("exEnd").onclick = () => { at = steps.length; draw(); };
+  document.getElementById("exStart").onclick = () => { at = 0; draw(); };
+  if (O.examples.length) loadEx();
+}
+
+// exhaustive stage check in a worker (Dijkstra from the solved position; costs are move counts)
+function runStage(O, i, log, con) {
+  const s = O.stages[i], st = makeStage(faceMask(s.solved), faceMask(s.solve));
+  con.textContent = `Stage ${i + 1}: building the algorithm images...`;
+  setTimeout(() => {
+    const acts = stageActions(O.kind, st, s.classes);
+    log(`${s.classes.length} listed algorithms give ${acts.length} different usable moves of the pieces in this stage.`);
+    log(`Searching all ${st.total.toLocaleString()} positions...`);
+    const src = document.getElementById("worker").textContent;
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+    const t0 = performance.now();
+    w.onmessage = e => {
+      const m = e.data;
+      if (m.progress !== undefined) { const lines = con.innerHTML.split("\n"); if (lines[lines.length - 1].startsWith("  ")) lines.pop(); con.innerHTML = lines.join("\n") + "\n  " + m.progress; return; }
+      const sec = ((performance.now() - t0) / 1000).toFixed(1);
+      if (m.reached !== st.total) log(`Only ${m.reached} of ${st.total} positions reached.`, "fail");
+      else {
+        const same = m.worst === s.worst;
+        log(`All ${st.total.toLocaleString()} positions reached; the hardest needs ${m.worst} moves (${sec}s).`, same ? "ok" : "fail");
+        const hk = Object.keys(m.hist).map(Number).sort((a, b) => a - b);
+        log("Positions by moves needed: " + hk.map(k => `${k}:${m.hist[k]}`).join(" "));
+      }
+      w.terminate();
+    };
+    w.postMessage({ st, acts: acts.map(a => ({ d: a.d, cost: a.cost })) });
+  }, 30);
+}
+</script>
+<script type="text/plain" id="worker">
+const BIN = []; for (let i = 0; i <= 32; i++) { BIN.push([]); for (let k = 0; k <= 5; k++) BIN[i].push(k === 0 ? 1 : i === 0 ? 0 : BIN[i - 1][k - 1] + BIN[i - 1][k]); }
+function popc(x) { x -= (x >>> 1) & 0x55555555; x = (x & 0x33333333) + ((x >>> 2) & 0x33333333); return (((x + (x >>> 4)) & 0x0F0F0F0F) * 0x01010101) >>> 24; }
+onmessage = e => {
+  const { st, acts } = e.data, nc = st.tg.length, n = st.n, full = (1 << n) - 1;
+  const rank = m => { let r = 0, taken = 0; for (let c = 0; c < nc; c++) { const avail = full & ~taken; let sub = 0, k = 0; for (let x = m[c]; x; x &= x - 1) sub += BIN[popc(avail & ((x & -x) - 1))][++k]; r = r * st.radix[c] + sub; taken |= m[c]; } return r; };
+  const unrank = (r, m) => { const sub = []; for (let c = nc - 1; c >= 0; c--) { sub[c] = r % st.radix[c]; r = Math.floor(r / st.radix[c]); } let taken = 0; for (let c = 0; c < nc; c++) { const ai = []; for (let i = 0; i < n; i++) if (!(taken >> i & 1)) ai.push(i); let s = sub[c], mm = 0, hi = ai.length; for (let k = 4; k >= 1; k--) { let v = k - 1; while (v + 1 < hi && BIN[v + 1][k] <= s) v++; s -= BIN[v][k]; mm |= 1 << ai[v]; hi = v; } m[c] = mm; taken |= mm; } };
+  const A = acts.length, D = new Int8Array(A * 32), C = new Int32Array(A);
+  acts.forEach((a, k) => { a.d.forEach((v, i) => D[k * 32 + i] = v); C[k] = a.cost; });
+  const dist = new Uint8Array(st.total).fill(255), goal = [];
+  for (let c = 0; c < nc; c++) { let m = 0; for (let k = 0; k < 4; k++) m |= 1 << st.cidx[4 * st.tg[c] + k]; goal.push(m); }
+  dist[rank(goal)] = 0;
+  const m = new Array(nc), t = new Array(nc);
+  let reached = 0, worst = 0, last = Date.now();
+  const hist = {};
+  for (let d = 0; d < 255; d++) {
+    let found = 0, pending = false;
+    for (let r = 0; r < st.total; r++) {
+      const dv = dist[r];
+      if (dv !== d) { if (dv !== 255 && dv > d) pending = true; continue; }
+      found++;
+      unrank(r, m);
+      for (let a = 0; a < A; a++) {
+        const nd = d + C[a], base = a * 32;
+        for (let c = 0; c < nc; c++) { let x = 0; for (let y = m[c]; y; y &= y - 1) x |= 1 << D[base + 31 - Math.clz32(y & -y)]; t[c] = x; }
+        const tr = rank(t);
+        if (nd < dist[tr]) dist[tr] = nd;
+      }
+      if ((found & 1023) === 0 && Date.now() - last > 400) { last = Date.now(); postMessage({ progress: `${d} moves: ${(reached + found).toLocaleString()} of ${st.total.toLocaleString()} positions settled` }); }
+    }
+    if (found) { reached += found; worst = d; hist[d] = found; }
+    if (!found && !pending) break;
+  }
+  postMessage({ reached, worst, hist });
+};
+</script>
+<script>
+(function () {
+  const tabs = document.getElementById("tabs");
+  if (DATA.length > 1) DATA.forEach((O, i) => { const b = document.createElement("button"); b.setAttribute("role", "tab"); b.textContent = O.tab; b.onclick = () => render(i); tabs.appendChild(b); });
+  render(0);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => render(+([...tabs.children].findIndex(b => b.getAttribute("aria-selected") === "true")) || 0));
+})();
+</script>

@@ -1,0 +1,36 @@
+# ./diagcheck /Users/rokicki/orbitsolve/cert/diag/centres-first/stages/D..U
+stage D..U: 1 solved groups kept, 1 target groups; 5 segment files
+lines: 635, 0 bad, 0 in the wrong segment; longest 16; lengths: 0:1 7:8 8:24 9:47 10:36 11:17 12:59 13:259 14:100 15:79 16:5 (0s)
+classes: 635 distinct positions, 0 lines repeat a class already listed; 8 cube symmetries keep the stage
+  w00: 1 lines, longest 0, 1 stage states, 0 not covered
+  w01: 8 lines, longest 7, 64 stage states, 0 not covered
+  w02: 100 lines, longest 10, 720 stage states, 0 not covered
+  w03: 280 lines, longest 14, 2240 stage states, 0 not covered
+  w04: 246 lines, longest 16, 1820 stage states, 0 not covered
+coverage checked (0s)
+side effects on 4x4x4, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 0 keep colours but move other centre pieces (not pure), 635 pure
+side effects on 5x5x5, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 6x6x6, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 6x6x6, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 7x7x7, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 7x7x7, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 8x8x8, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 8x8x8, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 8x8x8, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 9x9x9, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 9x9x9, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 9x9x9, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 10x10x10, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 10x10x10, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 10x10x10, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 10x10x10, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 11x11x11, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 11x11x11, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 11x11x11, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 11x11x11, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 12x12x12, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 12x12x12, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 12x12x12, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 12x12x12, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+side effects on 12x12x12, diagonal depth 6: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 516 keep colours but move other centre pieces (not pure), 119 pure
+PASS: every stage state in these segments is solved in at most 16 moves (0s)

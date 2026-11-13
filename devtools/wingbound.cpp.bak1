@@ -1,0 +1,294 @@
+// Upper bound on the moves needed to solve one wing orbit (24 distinct
+// pieces) with wing algorithms: sequences that change nothing but that wing
+// orbit and the centres (wings are solved first, so centres may end up
+// anything).
+//
+// Staged: the wings are placed in a given order, a chunk at a time.  While
+// placing a chunk, only algorithms that keep every already placed wing in
+// place are used.  The stage state is the positions of the chunk's wings among
+// the free positions (n! / (n-k)! states).  Dijkstra from the goal (pools are
+// closed under inversion) with each algorithm costing its move count gives the
+// stage's exact worst case; the bound is the sum (no cancellation counted).
+//
+//   wingbound [--chunks K1,K2,...] [--order P0,P1,...] [--random R] [--seed S]
+//             [--budget E] [--maxcost C] POOL.cls...      (run from dist/gullicube)
+//     --chunks   chunk sizes, summing to 24 (the last wing comes free)
+//     --order    wing positions in placing order (default 0..23)
+//     --random R also try R random orders, keep the best
+//     --worst F  write every position at each stage's worst distance (if at most 1e6):
+//                "DIST w0 .. w23", the wing at each position ('-' = not tracked)
+#include "classpool.h"
+#include <algorithm>
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <map>
+#include <random>
+#include <thread>
+#include <unordered_map>
+#include <vector>
+
+static double now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+static int nthreads;
+static double budget = 4e11;
+static FILE *worstFile = nullptr;
+
+struct Alg { std::array<uint8_t, 24> dst; int cost; };  // the piece at position s goes to dst[s]
+static std::vector<Alg> algs;
+
+struct Stage {
+  std::vector<int> pos;      // free positions (P positions)
+  std::vector<int> cidx;     // P position -> free index
+  std::vector<int> pieces;   // wings placed by this stage (their home positions)
+  int n, k;
+  std::vector<uint64_t> radix;
+  uint64_t total = 1;
+};
+static Stage makeStage(uint32_t placed, const std::vector<int> &pieces) {
+  Stage st;
+  st.cidx.assign(24, -1);
+  for (int p = 0; p < 24; p++) if (!(placed >> p & 1)) { st.cidx[p] = st.pos.size(); st.pos.push_back(p); }
+  st.n = st.pos.size();
+  st.pieces = pieces;
+  st.k = pieces.size();
+  for (int i = 0; i < st.k; i++) { st.radix.push_back(st.n - i); st.total *= st.n - i; }
+  return st;
+}
+// state: free index of each chunk wing
+static inline uint64_t rankOf(const Stage &st, const uint8_t *x) {
+  uint64_t r = 0;
+  uint32_t used = 0;
+  for (int i = 0; i < st.k; i++) {
+    r = r * st.radix[i] + (x[i] - __builtin_popcount(used & ((1u << x[i]) - 1)));
+    used |= 1u << x[i];
+  }
+  return r;
+}
+static inline void unrank(const Stage &st, uint64_t r, uint8_t *x) {
+  uint64_t d[24];
+  for (int i = st.k - 1; i >= 0; i--) { d[i] = r % st.radix[i]; r /= st.radix[i]; }
+  uint32_t used = 0;
+  for (int i = 0; i < st.k; i++) {
+    int v = -1;
+    for (uint64_t c = d[i] + 1; c; c--) { v++; while (used >> v & 1) v++; }
+    x[i] = v;
+    used |= 1u << v;
+  }
+}
+
+// exact worst case of a stage (-1 if some state is unreachable)
+static int solveStage(const Stage &st, uint32_t placed, std::string &info) {
+  double t0 = now();
+  // usable: placed wings stay put; reduced to the free positions, cheapest per action
+  struct H { size_t operator()(const std::vector<uint8_t> &v) const { size_t h = 1469598103934665603ULL; for (auto c : v) h = (h ^ c) * 1099511628211ULL; return h; } };
+  std::unordered_map<std::vector<uint8_t>, int, H> best;
+  long usable = 0;
+  for (auto &a : algs) {
+    bool ok = true;
+    for (int p = 0; p < 24 && ok; p++) if (placed >> p & 1) ok = a.dst[p] == p;
+    if (!ok) continue;
+    usable++;
+    std::vector<uint8_t> d(st.n);
+    bool id = true;
+    for (int i = 0; i < st.n; i++) { d[i] = st.cidx[a.dst[st.pos[i]]]; id &= d[i] == i; }
+    if (id) continue;
+    auto it = best.find(d);
+    if (it == best.end()) best.emplace(std::move(d), a.cost);
+    else it->second = std::min(it->second, a.cost);
+  }
+  struct CA { std::vector<uint8_t> d; int cost; };
+  std::vector<CA> ca;
+  for (auto &kv : best) ca.push_back({kv.first, kv.second});
+  std::sort(ca.begin(), ca.end(), [](const CA &a, const CA &b) { return a.cost < b.cost; });
+  int cap = 255;
+  while (ca.size() > 1 && (double)st.total * ca.size() > budget) {
+    cap = ca.back().cost - 1;
+    while (!ca.empty() && ca.back().cost > cap) ca.pop_back();
+  }
+  std::vector<uint8_t> dT(ca.size() * 24);
+  for (size_t a = 0; a < ca.size(); a++) for (int i = 0; i < st.n; i++) dT[a * 24 + i] = ca[a].d[i];
+  std::vector<uint8_t> dist(st.total, 0xFF);
+  uint8_t goal[24];
+  for (int i = 0; i < st.k; i++) goal[i] = st.cidx[st.pieces[i]];
+  dist[rankOf(st, goal)] = 0;
+  uint64_t reached = 0;
+  int maxd = 0;
+  for (int d = 0; d < 255; d++) {
+    std::atomic<uint64_t> next{0}, found{0}, later{0};
+    auto work = [&] {
+      uint8_t x[24], y[24];
+      uint64_t f = 0, l = 0;
+      const uint64_t chunk = 1 << 14;
+      for (uint64_t lo; (lo = next.fetch_add(chunk)) < st.total;) {
+        const uint64_t hi = std::min<uint64_t>(st.total, lo + chunk);
+        for (uint64_t r = lo; r < hi; r++) {
+          const uint8_t dv = std::atomic_ref<uint8_t>(dist[r]).load(std::memory_order_relaxed);
+          if (dv != d) { if (dv != 0xFF && dv > d) l++; continue; }
+          f++;
+          unrank(st, r, x);
+          for (size_t a = 0; a < ca.size(); a++) {
+            const int nd = d + ca[a].cost;
+            if (nd >= 255) break;
+            const uint8_t *D = &dT[a * 24];
+            for (int i = 0; i < st.k; i++) y[i] = D[x[i]];
+            std::atomic_ref<uint8_t> ar(dist[rankOf(st, y)]);
+            uint8_t cur = ar.load(std::memory_order_relaxed);
+            while (nd < cur && !ar.compare_exchange_weak(cur, (uint8_t)nd, std::memory_order_relaxed)) {}
+          }
+        }
+      }
+      found += f, later += l;
+    };
+    std::vector<std::thread> th;
+    for (int i = 0; i < nthreads; i++) th.emplace_back(work);
+    for (auto &t : th) t.join();
+    if (found) { reached += found; maxd = d; }
+    if (!found && !later) {
+      bool any = false;
+      for (uint64_t r = 0; r < st.total && !any; r++) any = dist[r] != 0xFF && dist[r] > d;
+      if (!any) break;
+    }
+  }
+  char buf[200];
+  snprintf(buf, sizeof buf, "%llu states, %ld usable -> %zu actions%s, %.1fs", (unsigned long long)st.total, usable, ca.size(),
+           cap < 255 ? (" (cost <= " + std::to_string(cap) + ")").c_str() : "", now() - t0);
+  info = buf;
+  if (reached == st.total) {
+    std::vector<uint64_t> h(256, 0);
+    for (uint64_t r = 0; r < st.total; r++) h[dist[r]]++;
+    info += "\n      distances:";
+    for (int d = 0; d < 255; d++) if (h[d]) info += " " + std::to_string(d) + ":" + std::to_string(h[d]);
+  }
+  if (worstFile && reached == st.total) {
+    uint64_t cnt = 0;
+    for (uint64_t r = 0; r < st.total; r++) cnt += dist[r] == maxd;
+    fprintf(worstFile, "# stage placing %d wings (%d placed): %llu positions at %d%s\n", st.k, 24 - st.n,
+            (unsigned long long)cnt, maxd, cnt > 1000000 ? " (too many, not listed)" : "");
+    if (cnt <= 1000000) {
+      uint8_t x[24];
+      for (uint64_t r = 0; r < st.total; r++) {
+        if (dist[r] != maxd) continue;
+        unrank(st, r, x);
+        // wing at each position: placed wings at home, this stage's wings where they are, '-' untracked
+        int at[24];
+        for (int p = 0; p < 24; p++) at[p] = (placed >> p & 1) ? p : -1;
+        for (int i = 0; i < st.k; i++) at[st.pos[x[i]]] = st.pieces[i];
+        fprintf(worstFile, "%d", maxd);
+        for (int p = 0; p < 24; p++) { if (at[p] < 0) fprintf(worstFile, " -"); else fprintf(worstFile, " %d", at[p]); }
+        fprintf(worstFile, "\n");
+      }
+    }
+    fflush(worstFile);
+  }
+  return reached == st.total ? maxd : -1;
+}
+
+static std::vector<int> parseList(const std::string &s) {
+  std::vector<int> r;
+  size_t p = 0;
+  while (p < s.size()) {
+    size_t q = s.find(',', p);
+    if (q == std::string::npos) q = s.size();
+    r.push_back(atoi(s.substr(p, q - p).c_str()));
+    p = q + 1;
+  }
+  return r;
+}
+
+int main(int argc, char **argv) {
+  printf("#");
+  for (int i = 0; i < argc; i++) printf(" %s", argv[i]);
+  printf("\n");
+  std::vector<int> chunks = {5, 4, 4, 11}, order;
+  int nRandom = 0, maxCost = 99;
+  uint64_t seed = std::random_device{}();
+  int ai = 1;
+  for (; ai < argc && argv[ai][0] == '-' && argv[ai][1] == '-'; ai++) {
+    std::string o = argv[ai];
+    if (o == "--chunks" && ai + 1 < argc) chunks = parseList(argv[++ai]);
+    else if (o == "--order" && ai + 1 < argc) order = parseList(argv[++ai]);
+    else if (o == "--random" && ai + 1 < argc) nRandom = atoi(argv[++ai]);
+    else if (o == "--seed" && ai + 1 < argc) seed = strtoull(argv[++ai], 0, 10);
+    else if (o == "--budget" && ai + 1 < argc) budget = atof(argv[++ai]);
+    else if (o == "--maxcost" && ai + 1 < argc) maxCost = atoi(argv[++ai]);
+    else if (o == "--worst" && ai + 1 < argc) {
+      worstFile = fopen(argv[++ai], "w");
+      if (!worstFile) { fprintf(stderr, "cannot write %s\n", argv[ai]); return 1; }
+    }
+    else { fprintf(stderr, "unknown option %s\n", o.c_str()); return 1; }
+  }
+  if (ai >= argc) {
+    fprintf(stderr, "usage: wingbound [--chunks K1,K2,..] [--order P0,..,P23] [--random R] [--seed S] [--budget E] [--maxcost C] POOL.cls...\n");
+    return 1;
+  }
+  int sum = 0;
+  for (int c : chunks) sum += c;
+  if (sum != 24 && sum != 23) { fprintf(stderr, "chunks must sum to 23 or 24\n"); return 1; }
+  if (order.empty()) for (int p = 0; p < 24; p++) order.push_back(p);
+  if (order.size() != 24) { fprintf(stderr, "--order needs 24 positions\n"); return 1; }
+  printf("seed %llu\n", (unsigned long long)seed);
+  nthreads = std::max(1u, std::thread::hardware_concurrency());
+  OrbitModel m = wingModel();
+  struct H { size_t operator()(const std::array<uint8_t, 24> &v) const { size_t h = 1469598103934665603ULL; for (auto c : v) h = (h ^ c) * 1099511628211ULL; return h; } };
+  std::unordered_map<std::array<uint8_t, 24>, uint8_t, H> bestPerm;
+  for (; ai < argc; ai++) {
+    ClassPool cp;
+    if (!cp.load(argv[ai])) { fprintf(stderr, "cannot read %s\n", argv[ai]); return 1; }
+    size_t before = bestPerm.size();
+    cp.expand(m, [&](const uint8_t *src, int c, uint32_t) {
+      if (c > maxCost) return;
+      std::array<uint8_t, 24> d;
+      for (int j = 0; j < 24; j++) d[src[j]] = j;
+      auto it = bestPerm.find(d);
+      if (it == bestPerm.end()) bestPerm.emplace(d, (uint8_t)c);
+      else if (c < it->second) it->second = c;
+    }, false);
+    printf("%s: %zu new permutations (total %zu)\n", argv[ai], bestPerm.size() - before, bestPerm.size());
+    fflush(stdout);
+  }
+  for (auto &kv : bestPerm) {
+    bool id = true;
+    for (int p = 0; p < 24 && id; p++) id = kv.first[p] == p;
+    if (!id) algs.push_back({kv.first, kv.second});
+  }
+  std::map<int, long> byCost;
+  for (auto &a : algs) byCost[a.cost]++;
+  printf("%zu algorithms; by cost:", algs.size());
+  for (auto &kv : byCost) printf(" %d:%ld", kv.first, kv.second);
+  printf("\n");
+  // wing partners: the two wings of an edge (the half-turn symmetry about the edge axis swaps them;
+  // printed for choosing orders by hand)
+  fflush(stdout);
+  std::mt19937_64 rng(seed);
+  int bestTotal = 1 << 30;
+  std::vector<int> bestOrder;
+  for (int trial = 0; trial <= nRandom; trial++) {
+    std::vector<int> ord = order;
+    if (trial > 0) std::shuffle(ord.begin(), ord.end(), rng);
+    printf("order:");
+    for (int p : ord) printf(" %d", p);
+    printf("\n");
+    uint32_t placed = 0;
+    int total = 0;
+    size_t at = 0;
+    for (int c : chunks) {
+      std::vector<int> pieces(ord.begin() + at, ord.begin() + std::min<size_t>(24, at + c));
+      at += c;
+      if (at >= 23) pieces.assign(ord.begin() + (at - c), ord.end());  // the last chunk takes every remaining wing
+      Stage st = makeStage(placed, pieces);
+      std::string info;
+      int M = solveStage(st, placed, info);
+      printf("  place %zu wings (%d placed): worst %d   (%s)\n", pieces.size(), __builtin_popcount(placed), M, info.c_str());
+      fflush(stdout);
+      if (M < 0) { total = 1 << 29; break; }
+      total += M;
+      for (int p : pieces) placed |= 1u << p;
+      if (at >= 23) break;
+    }
+    printf("  total %d\n", total);
+    if (total < bestTotal) bestTotal = total, bestOrder = ord;
+  }
+  printf("bound: %d moves; order:", bestTotal);
+  for (int p : bestOrder) printf(" %d", p);
+  printf("\n");
+}

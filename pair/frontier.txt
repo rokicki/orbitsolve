@@ -1,0 +1,6 @@
+[w32s10_ws0] W=32 pool=407920 lambda=3 M=8 eg=1  solved 256/256  moves 67.20  244.223 ms/pair (thread cpu)
+[w32s10_ws1] W=32 pool=407920 lambda=3 M=8 eg=1  solved 256/256  moves 64.64  225.500 ms/pair (thread cpu)
+[w32s10_ws2] W=32 pool=407920 lambda=3 M=8 eg=1  solved 256/256  moves 63.25  220.440 ms/pair (thread cpu)
+[w128s10_ws1] W=128 pool=407920 lambda=3 M=8 eg=1  solved 128/128  moves 62.88  1778.012 ms/pair (thread cpu)
+[w128s10_ws2] W=128 pool=407920 lambda=3 M=8 eg=1  solved 128/128  moves 61.10  1549.675 ms/pair (thread cpu)
+[w192s10_ws2] W=192 pool=407920 lambda=3 M=8 eg=1  solved 96/96  moves 60.94  3780.742 ms/pair (thread cpu)

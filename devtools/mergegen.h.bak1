@@ -1,0 +1,320 @@
+// mergegen.h: oblique-pair algorithms for a centres-first solve, by merging projections.
+//
+// A word w over faces, depth-2 and depth-3 turns keeps every other oblique orbit colour-solved
+// iff both projections are pure on the 5x5x5 T-centres (proj1: w without its 3-turns; proj2: w
+// without its 2-turns, 3 renamed 2; see tcwalk).  So every such w is an interleaving of two pure
+// 5^3 words u (faces + 2-turns) and v (faces + 3-turns) with the same face turns in the same
+// order (the face skeleton).  The generator
+//   1. builds W, a set of pure 5^3 words, unreduced (2B 2B' is kept: a 3-turn may separate the
+//      two in a merge), grouped by face skeleton: both projections of every algorithm of the
+//      --wfrom pools (face turns at the ends stripped first), and/or every pure word with at
+//      most S slice and F face letters;
+//   2. merges every (u, v) pair of one skeleton (also u or v with no slice turns) into words of
+//      at most maxLen moves, rejecting on the fly two adjacent turns of one layer within a
+//      same-axis run (they would cancel or merge) and commuting runs out of their fixed order;
+//      cores only (no face turn in the first or last same-axis run).  With wsym the v side is
+//      every image of W under the 48 symmetries x inverse, so every merge is produced up to
+//      symmetry (merge(y u, z v) is the y-image of merge(u, y^-1 z v)).
+// Every merged word is pure by construction: no table lookups at the leaves.
+#pragma once
+#include "classpool.h"
+#include <atomic>
+#include <chrono>
+#include <cstring>
+#include <functional>
+#include <map>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+namespace mg {
+typedef unsigned __int128 u128;
+inline double now() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
+struct St { uint8_t c[24]; };
+inline u128 key(const St &s) { u128 k = 0; for (int i = 0; i < 24; i++) k = k << 3 | s.c[i]; return k; }
+struct KH { size_t operator()(u128 k) const { uint64_t a = (uint64_t)k, b = (uint64_t)(k >> 64); return (a ^ (b * 0x9E3779B97F4A7C15ULL)) * 0xBF58476D1CE4E5B9ULL; } };
+// 5^3 letters: (face*2 + depth-1)*3 + amt-1, depth 1 = face, 2 = slice
+inline int lFace(int l) { return l / 6; }
+inline int lDepth(int l) { return l / 3 % 2 + 1; }
+inline int lAmt(int l) { return l % 3 + 1; }
+// merged moves: (face*3 + depth-1)*3 + amt-1, depth 1..3 (orbitbound's move codes)
+inline int wIndex(int f, int d, int a) { return (f * 3 + d - 1) * 3 + a - 1; }
+
+struct Config {
+  int maxLen = 10, S = 4, F = 2, R = 5;
+  bool wenum = false, wsym = false;
+  std::vector<std::string> wfrom;
+};
+
+struct Gen {
+  Config cfg;
+  int t5[36][24];
+  int wAxis[54], wOrd[54], wDepth[54];
+  uint8_t mp[54][48];  // dst form: the piece at q goes to mp[m][q]
+  std::map<std::string, std::vector<std::string>> W, Wv;
+  struct Task { const std::string *sk; const std::string *u; };
+  std::vector<Task> tasks;
+  std::vector<std::string> bare;
+
+  void ap(const St &s, int m, St &t) const { for (int p = 0; p < 24; p++) t.c[t5[m][p]] = s.c[p]; }
+
+  bool build(const OrbitModel &model) {
+    const double t0 = now();
+    static const int axisOf[6] = {0, 1, 2, 1, 2, 0}, firstSide[6] = {1, 1, 1, 0, 0, 0};
+    Cube c(5);
+    std::vector<int> tpos, tidx(c.pos.size(), -1);
+    for (size_t i = 0; i < c.pos.size(); i++) {
+      const int r = c.drow(i), k = c.dcol(i);
+      if ((r == 2 && k == 3) || (r == 3 && k == 2)) { tidx[i] = tpos.size(); tpos.push_back(i); }
+    }
+    for (int f = 0; f < 6; f++)
+      for (int d = 1; d <= 2; d++)
+        for (int a = 1; a <= 3; a++)
+          for (int p = 0; p < 24; p++) {
+            int s = tpos[p];
+            for (int q = 0; q < a; q++) s = c.movePerm[f][d - 1][s];
+            t5[(f * 2 + d - 1) * 3 + a - 1][p] = tidx[s];
+          }
+    St solved;
+    for (int p = 0; p < 24; p++) solved.c[p] = c.face[tpos[p]];
+    const u128 solvedKey = key(solved);
+    for (int f = 0; f < 6; f++)
+      for (int d = 1; d <= 3; d++)
+        for (int a = 1; a <= 3; a++) {
+          const int m = wIndex(f, d, a);
+          wAxis[m] = axisOf[f], wOrd[m] = firstSide[f] ? d - 1 : 5 - (d - 1), wDepth[m] = d;
+        }
+    for (int m = 0; m < 54; m++) {
+      const auto &src = model.mv(m / 9, m / 3 % 3 + 1, m % 3 + 1);
+      for (int j = 0; j < 48; j++) mp[m][src[j]] = j;
+    }
+    if (!cfg.wfrom.empty()) {
+      // both projections of every pool algorithm (face turns at the ends stripped first)
+      long algsRead = 0;
+      char buf[8192];
+      for (auto &fn : cfg.wfrom) {
+        FILE *f = fopen(fn.c_str(), "r");
+        if (!f) { fprintf(stderr, "mergegen: cannot open a --wfrom file\n"); return false; }
+        while (fgets(buf, sizeof buf, f)) {
+          char *q;
+          strtol(buf, &q, 10);
+          if (q == buf) continue;
+          std::string t(q);
+          while (!t.empty() && (t.back() == '\n' || t.back() == ' ')) t.pop_back();
+          if (t.size() >= 3 && t.compare(t.size() - 3, 2, " D") == 0) t.resize(t.size() - 3);
+          std::vector<int> w;
+          for (auto &x : parse_alg(t)) w.push_back(wIndex(x.face, x.depth, x.amt));
+          for (bool ch = true; ch && !w.empty();) {
+            ch = false;
+            size_t j = 0;
+            while (j < w.size() && wAxis[w[j]] == wAxis[w[0]]) j++;
+            for (size_t k = 0; k < j && !ch; k++) if (wDepth[w[k]] == 1) { w.erase(w.begin() + k); ch = true; }
+            if (ch || w.empty()) continue;
+            size_t k0 = w.size();
+            while (k0 > 0 && wAxis[w[k0 - 1]] == wAxis[w.back()]) k0--;
+            for (size_t k = k0; k < w.size() && !ch; k++) if (wDepth[w[k]] == 1) { w.erase(w.begin() + k); ch = true; }
+          }
+          algsRead++;
+          for (int pr = 2; pr <= 3; pr++) {
+            std::string x, sk;
+            int ns = 0;
+            for (int m : w) {
+              const int fc = m / 9, d = wDepth[m], a = m % 3 + 1;
+              if (d == 1) { const char l = (fc * 2) * 3 + a - 1; x += l; sk += l; }
+              else if (d == pr) { x += (char)((fc * 2 + 1) * 3 + a - 1); ns++; }
+            }
+            if (ns) W[sk].push_back(x);
+          }
+        }
+        fclose(f);
+      }
+      fprintf(stderr, "mergegen: projections of %ld pool algorithms (%.1fs)\n", algsRead, now() - t0);
+    }
+    if (cfg.wenum || cfg.wfrom.empty()) {
+      // every pure word with 1..S slice letters and 0..F face letters (pruned by a table of the
+      // colourings within R letters)
+      std::unordered_map<u128, uint8_t, KH> near;
+      {
+        std::vector<St> fr{solved};
+        near[solvedKey] = 0;
+        for (int d = 1; d <= cfg.R; d++) {
+          std::vector<St> nx;
+          for (auto &s : fr)
+            for (int m = 0; m < 36; m++) { St t; ap(s, m, t); if (near.emplace(key(t), d).second) nx.push_back(t); }
+          fr.swap(nx);
+        }
+      }
+      auto ndist = [&](const St &s) { auto it = near.find(key(s)); return it == near.end() ? cfg.R + 1 : (int)it->second; };
+      std::string w;
+      std::vector<St> st(cfg.S + cfg.F + 1);
+      st[0] = solved;
+      long n = 0;
+      std::function<void(int, int)> dfs = [&](int ns, int nf) {
+        const int len = w.size();
+        if (ns > 0 && key(st[len]) == solvedKey) {
+          std::string sk;
+          for (char x : w) if (lDepth(x) == 1) sk += x;
+          W[sk].push_back(w);
+          n++;
+        }
+        const int left = (cfg.S - ns) + (cfg.F - nf);
+        if (!left) return;
+        for (int m = 0; m < 36; m++) {
+          const bool face = lDepth(m) == 1;
+          if (face ? nf == cfg.F : ns == cfg.S) continue;
+          if (len && face && lDepth(w.back()) == 1 && lFace(w.back()) == lFace(m)) continue;  // merges in every merge
+          ap(st[len], m, st[len + 1]);
+          if (ndist(st[len + 1]) > left - 1) continue;
+          w.push_back(m);
+          dfs(ns + !face, nf + face);
+          w.pop_back();
+        }
+      };
+      dfs(0, 0);
+      fprintf(stderr, "mergegen: %ld enumerated pure words (%d slice, %d face letters at most) (%.1fs)\n", n, cfg.S, cfg.F, now() - t0);
+    }
+    long nW = 0;
+    std::map<int, long> byLen;
+    for (auto &[sk, v] : W) {
+      std::sort(v.begin(), v.end());
+      v.erase(std::unique(v.begin(), v.end()), v.end());
+      nW += v.size();
+      for (auto &x : v) byLen[x.size()]++;
+    }
+    fprintf(stderr, "mergegen: W has %ld words in %zu skeletons; by length:", nW, W.size());
+    for (auto &kv : byLen) fprintf(stderr, " %d:%ld", kv.first, kv.second);
+    fprintf(stderr, "\n");
+    if (cfg.wsym) {
+      int symFace[48][6], symDet[48];
+      const int perms[6][3] = {{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}}, sign[6] = {1, -1, -1, 1, 1, -1};
+      int y = 0;
+      for (int pi = 0; pi < 6; pi++)
+        for (int sg = 0; sg < 8; sg++, y++) {
+          for (int f = 0; f < 6; f++) {
+            int v[3];
+            for (int r = 0; r < 3; r++) v[r] = NORMAL[f][perms[pi][r]] * ((sg >> r) & 1 ? -1 : 1);
+            symFace[y][f] = face_of_normal(v[0], v[1], v[2]);
+          }
+          symDet[y] = sign[pi] * (__builtin_popcount(sg) & 1 ? -1 : 1);
+        }
+      std::map<std::string, std::unordered_set<std::string>> ws;
+      for (auto &[sk, v] : W)
+        for (auto &x : v)
+          for (int inv = 0; inv < 2; inv++)
+            for (int yy = 0; yy < 48; yy++) {
+              std::string z, zs;
+              for (size_t i = 0; i < x.size(); i++) {
+                const int l = inv ? x[x.size() - 1 - i] : x[i];
+                int a = lAmt(l);
+                if (inv) a = 4 - a;
+                if (symDet[yy] < 0) a = 4 - a;
+                const char nl = (symFace[yy][lFace(l)] * 2 + lDepth(l) - 1) * 3 + a - 1;
+                z += nl;
+                if (lDepth(l) == 1) zs += nl;
+              }
+              ws[zs].insert(z);
+            }
+      long n = 0;
+      for (auto &[sk, v] : ws) { for (auto &x : v) Wv[sk].push_back(x); n += v.size(); }
+      fprintf(stderr, "mergegen: v side has %ld images in %zu skeletons (%.1fs)\n", n, Wv.size(), now() - t0);
+    } else Wv = W;
+    for (auto &[sk, v] : Wv) std::stable_sort(v.begin(), v.end(), [](const std::string &a, const std::string &b) { return a.size() < b.size(); });
+    for (auto &[sk, v] : W) for (auto &u : v) tasks.push_back({nullptr, &u});
+    bare.reserve(Wv.size());
+    for (auto &[sk, v] : Wv) bare.push_back(sk);
+    for (auto &sk : bare) tasks.push_back({&sk, &sk});  // u = bare skeleton (v carries all slices)
+    return true;
+  }
+
+  // every merged core word of at most maxLen moves, nontrivial on the pair:
+  // cb(thread, perm (dst form), length, moves); stats per length into words
+  template <class CB> void run(int threads, CB cb, std::vector<long> &words, long &nodes) {
+    words.assign(cfg.maxLen + 1, 0);
+    nodes = 0;
+    std::mutex mu;
+    std::atomic<size_t> nextTask{0};
+    auto work = [&](int tid) {
+      std::vector<long> myWords(cfg.maxLen + 1, 0);
+      long nd = 0;
+      int seq[64];
+      uint8_t P[64][48];
+      for (int q = 0; q < 48; q++) P[0][q] = q;
+      static const std::vector<std::string> none;
+      for (size_t ti; (ti = nextTask++) < tasks.size();) {
+        const std::string &u = *tasks[ti].u;
+        std::string skU;
+        if (!tasks[ti].sk) for (char x : u) if (lDepth(x) == 1) skU += x;
+        const std::string &sk = tasks[ti].sk ? *tasks[ti].sk : skU;
+        const bool uBare = tasks[ti].sk != nullptr;
+        auto wit = Wv.find(sk);
+        const auto &vs = wit == Wv.end() ? none : wit->second;
+        const int nv = vs.size() + (uBare ? 0 : 1);  // the bare skeleton as v, unless u is bare
+        for (int vi = 0; vi < nv; vi++) {
+          const std::string &v = vi < (int)vs.size() ? vs[vi] : sk;
+          const int len = u.size() + v.size() - sk.size();
+          if (len > cfg.maxLen) { if (vi < (int)vs.size()) vi = vs.size() - 1; continue; }  // sorted by length
+          std::function<void(int, int, int, int)> dfs = [&](int i, int j, int n, int runStart) {
+            nd++;
+            if (i == (int)u.size() && j == (int)v.size()) {
+              for (int k = runStart; k < n; k++) if (wDepth[seq[k]] == 1) return;  // a face in the last run
+              bool id = true;
+              for (int q = 0; q < 48 && id; q++) id = P[n][q] == q;
+              if (id) return;
+              myWords[n]++;
+              cb(tid, P[n], n, seq);
+              return;
+            }
+            auto emit = [&](int m, int i2, int j2) {
+              int rs = runStart;
+              if (n > 0 && wAxis[m] == wAxis[seq[n - 1]]) {
+                if (wOrd[m] <= wOrd[seq[n - 1]]) return;  // out of order, or the same layer
+              } else rs = n;
+              if (wDepth[m] == 1 && rs == 0) return;  // a face turn in the first run
+              seq[n] = m;
+              for (int q = 0; q < 48; q++) P[n + 1][q] = mp[m][P[n][q]];
+              dfs(i2, j2, n + 1, rs);
+            };
+            const bool uf = i < (int)u.size() && lDepth(u[i]) == 1, vf = j < (int)v.size() && lDepth(v[j]) == 1;
+            if (i < (int)u.size() && !uf) emit(wIndex(lFace(u[i]), 2, lAmt(u[i])), i + 1, j);
+            if (j < (int)v.size() && !vf) emit(wIndex(lFace(v[j]), 3, lAmt(v[j])), i, j + 1);
+            if (uf && vf) emit(wIndex(lFace(u[i]), 1, lAmt(u[i])), i + 1, j + 1);
+          };
+          dfs(0, 0, 0, 0);
+        }
+      }
+      std::lock_guard<std::mutex> g(mu);
+      for (int d = 0; d <= cfg.maxLen; d++) words[d] += myWords[d];
+      nodes += nd;
+    };
+    std::vector<std::thread> th;
+    for (int t = 0; t < threads; t++) th.emplace_back(work, t);
+    for (auto &t : th) t.join();
+  }
+};
+
+// "--wfrom a --wfrom b --wsym --slices 4 ..." style options from one string (GENSEED)
+inline bool parseConfig(const std::string &s, Config &c) {
+  std::vector<std::string> a;
+  size_t i = 0;
+  while (i < s.size()) {
+    while (i < s.size() && s[i] == ' ') i++;
+    size_t j = i;
+    while (j < s.size() && s[j] != ' ') j++;
+    if (j > i) a.push_back(s.substr(i, j - i));
+    i = j;
+  }
+  for (size_t k = 0; k < a.size(); k++) {
+    const std::string &o = a[k];
+    if (o == "--maxlen" && k + 1 < a.size()) c.maxLen = atoi(a[++k].c_str());
+    else if (o == "--slices" && k + 1 < a.size()) c.S = atoi(a[++k].c_str()), c.wenum = true;
+    else if (o == "--faces" && k + 1 < a.size()) c.F = atoi(a[++k].c_str()), c.wenum = true;
+    else if (o == "--radius" && k + 1 < a.size()) c.R = atoi(a[++k].c_str());
+    else if (o == "--wfrom" && k + 1 < a.size()) c.wfrom.push_back(a[++k]);
+    else if (o == "--wsym") c.wsym = true;
+    else { fprintf(stderr, "mergegen: unknown option %s\n", o.c_str()); return false; }
+  }
+  return true;
+}
+}  // namespace mg

@@ -1,0 +1,17 @@
+N=20: beam widths 1, 2, 4, ... (Ctrl-C to stop and keep the best)
+  width     1: total       4273  (edges 461, corners+middle edges 9, centres 3803)  0.03s  best
+  width     2: total       4108  (edges 430, corners+middle edges 9, centres 3669)  0.02s  best
+  width     4: total       3929  (edges 402, corners+middle edges 9, centres 3518)  0.03s  best
+  width     8: total       3865  (edges 400, corners+middle edges 9, centres 3456)  0.06s  best
+  width    16: total       3760  (edges 379, corners+middle edges 9, centres 3372)  0.12s  best
+  width    32: total       3633  (edges 356, corners+middle edges 9, centres 3268)  0.22s  best
+  width    64: total       3507  (edges 339, corners+middle edges 9, centres 3159)  0.45s  best
+  width   128: total       3452  (edges 325, corners+middle edges 9, centres 3118)  1.24s  best
+best: 3452 moves
+N=20  SOLVED  pairs 36, diagonals 9, mids 0, wing orbits 9
+  corners             9 moves
+  wings             325 moves, 36.1 per wing orbit; 1.02s
+  oblique pairs    2704 moves (raw 2704, 0.0% merged away), 75.11 per pair; solve 0.04s, total 0.04s
+  diag+mid          414 moves (raw 414, 0.0% merged away); solve 0.18s, total 0.18s
+    raw per orbit: diagonal 46.2, mid 0.0
+  independent sticker-simulator check: SOLVED (3452 moves replayed)

@@ -1,0 +1,218 @@
+<title>Cube Solver Frontier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #f5f6f8;
+    --panel: #ffffff;
+    --ink: #1b2230;
+    --muted: #5b6475;
+    --grid: #dde1e8;
+    --axis: #9aa3b2;
+    --ours: #2458c6;
+    --ours-soft: rgba(36, 88, 198, 0.12);
+    --brob: #c98a0c;
+    --dwalton: #a23b72;
+    --line: #e3e6ec;
+    --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --paper: #12151b; --panel: #181c24; --ink: #e6e9ef; --muted: #9aa3b4; --grid: #2a303b; --axis: #5d6677;
+      --ours: #6f9bff; --ours-soft: rgba(111, 155, 255, 0.16); --brob: #e0a83a; --dwalton: #d56aa3; --line: #262b35;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --paper: #12151b; --panel: #181c24; --ink: #e6e9ef; --muted: #9aa3b4; --grid: #2a303b; --axis: #5d6677;
+    --ours: #6f9bff; --ours-soft: rgba(111, 155, 255, 0.16); --brob: #e0a83a; --dwalton: #d56aa3; --line: #262b35;
+  }
+  body { background: var(--paper); color: var(--ink); font: 15px/1.55 var(--body); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 48px; display: grid; gap: 28px; }
+  header { display: grid; gap: 10px; max-width: 72ch; }
+  h1 { font: 700 clamp(28px, 4vw, 40px)/1.1 var(--display); letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+  header p { margin: 0; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--muted); align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .sw { width: 22px; height: 10px; display: inline-block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+  figure { margin: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px 12px 8px; display: grid; gap: 6px; }
+  figcaption { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  figcaption b { font: 700 18px/1.2 var(--display); }
+  figcaption small { font: 12px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  svg { width: 100%; height: auto; display: block; overflow: visible; }
+  svg text { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+  .note { font-size: 12.5px; color: var(--muted); margin: 0; }
+  section h2 { font: 700 20px/1.2 var(--display); margin: 0 0 10px; }
+  .methods { display: grid; gap: 6px; max-width: 80ch; font-size: 14px; }
+  .methods p { margin: 0; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { padding: 6px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  th { font: 600 11px var(--body); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); position: sticky; top: 0; background: var(--panel); }
+  td { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.l, th.l { text-align: left; font-family: var(--body); }
+  tr.sep td { border-top: 2px solid var(--grid); }
+  .tag { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 1px; }
+  details summary { cursor: pointer; font: 600 14px var(--body); color: var(--ink); }
+  details summary:focus-visible { outline: 2px solid var(--ours); outline-offset: 3px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Cube Solver Frontier</h1>
+    <p id="lede">Solution length against solve time, both per sticker (6N² stickers), for power-of-two cube sizes. Lower left is better. Our solver is a curve: more time buys shorter solutions, without a ceiling. brobdicube gives one solution per setting, and more time does not improve it. It is drawn only when it lands near our curve; otherwise its numbers are listed under the panel.</p>
+    <div class="legend" aria-label="Legend">
+      <span><svg class="sw" viewBox="0 0 22 10"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--ours)" stroke-width="2"/><circle cx="11" cy="5" r="3.2" fill="var(--ours)"/></svg>gullicube (effort levels)</span>
+      <span><svg class="sw" viewBox="0 0 22 10"><rect x="7" y="1" width="8" height="8" transform="rotate(45 11 5)" fill="var(--brob)"/></svg>brobdicube (default and -g)</span>
+      <span><svg class="sw" viewBox="0 0 22 10"><line x1="1" y1="5" x2="21" y2="5" stroke="var(--dwalton)" stroke-width="2" stroke-dasharray="4 3"/></svg>dwalton76 (published moves, no times)</span>
+    </div>
+  </header>
+
+  <div class="grid" id="panels"></div>
+
+  <section class="methods">
+    <h2>How these were measured</h2>
+    <p id="machine"></p>
+    <p>Solve time excludes loading (gullicube's pools and finish tables; brobdicube's algorithm files), and includes planning, search, merging and output. brobdicube runs with <code>-p ⌈N/(2·threads)⌉</code> so its phases split across the threads; <code>-g</code> is its greedy planning (default planning is optimal and takes about 10 s at 4³).</p>
+    <p>gullicube effort levels: <code>--fast</code> (width-1 greedy, no merge), <code>--fast --finish</code> (plus exact one-algorithm finishes), and quality mode at beam widths 1–1024 (finish tables, mined wing pool, seam-aware costs, one merge, merge time budgeted at half the pair search time). A setting is dropped at larger sizes once a run exceeds two minutes.</p>
+    <p>Moves count one per layer turn, half turns 1. dwalton76 counts outer block turns (a wide turn is one move) and reports moves only, so his line is a reference for length, not a point in time.</p>
+  </section>
+
+  <section>
+    <details>
+      <summary>All measurements</summary>
+      <div class="tablewrap" style="margin-top:10px">
+        <table id="tbl"><thead><tr><th class="l">N</th><th class="l">solver / setting</th><th>runs</th><th>moves / sticker</th><th>±</th><th>µs / sticker</th><th>moves</th><th>solve s</th></tr></thead><tbody></tbody></table>
+      </div>
+    </details>
+  </section>
+</div>
+
+<script>
+const DATA = [{"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 4, "n": 8, "mps": 1.08073, "mps_se": 0.01388490148635251, "ups": 251.3020875, "moves": 103.75, "secs": 0.024125}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 4, "n": 8, "mps": 1.0625, "mps_se": 0.013058030233210073, "ups": 236.9791875, "moves": 102.0, "secs": 0.02275}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 4, "n": 8, "mps": 0.87630125, "mps_se": 0.01902879495072627, "ups": 240.8854125, "moves": 84.125, "secs": 0.023125}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 4, "n": 8, "mps": 0.8229175, "mps_se": 0.0165868999245532, "ups": 402.34375, "moves": 79.0, "secs": 0.038625}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 4, "n": 8, "mps": 0.75651, "mps_se": 0.019381665305127936, "ups": 1070.3125, "moves": 72.625, "secs": 0.10275000000000001}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 4, "n": 8, "mps": 0.75520625, "mps_se": 0.013205183091917788, "ups": 5325.5208375, "moves": 72.5, "secs": 0.51125}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 4, "n": 8, "mps": 0.69661375, "mps_se": 0.016520975513559813, "ups": 55505.2083375, "moves": 66.875, "secs": 5.3285}, {"solver": "gullicube", "config": "b1024", "label": "quality, beam 1024", "order": 7, "N": 4, "n": 8, "mps": 0.6979175, "mps_se": 0.008803549355231673, "ups": 454020.8333375, "moves": 67.0, "secs": 43.586}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 4, "n": 8, "mps": 3.31770875, "mps_se": 0.05766211941862886, "ups": 4083.0883, "moves": 318.5, "secs": 0.392}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 4, "n": 8, "mps": 2.03124875, "mps_se": 0.02720695233086442, "ups": 105863.1472375, "moves": 195.0, "secs": 10.162875}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 8, "n": 8, "mps": 1.45963625, "mps_se": 0.010578856429133265, "ups": 55.989575, "moves": 560.5, "secs": 0.0215}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 8, "n": 8, "mps": 1.39095125, "mps_se": 0.012647086400418188, "ups": 56.640625, "moves": 534.125, "secs": 0.02175}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 8, "n": 8, "mps": 1.0979825, "mps_se": 0.00719886914482308, "ups": 221.35415, "moves": 421.625, "secs": 0.08499999999999999}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 8, "n": 8, "mps": 1.00976625, "mps_se": 0.006142025299262923, "ups": 236.9791625, "moves": 387.75, "secs": 0.091}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 8, "n": 8, "mps": 0.9573575, "mps_se": 0.008523946887194583, "ups": 438.4765625, "moves": 367.625, "secs": 0.168375}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 8, "n": 8, "mps": 0.92513125, "mps_se": 0.005900247705907906, "ups": 2636.3932125, "moves": 355.25, "secs": 1.012375}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 8, "n": 8, "mps": 0.89681, "mps_se": 0.00843699167780961, "ups": 23145.5078, "moves": 344.375, "secs": 8.887875}, {"solver": "gullicube", "config": "b1024", "label": "quality, beam 1024", "order": 7, "N": 8, "n": 8, "mps": 0.8736975, "mps_se": 0.007890145017226045, "ups": 122627.6041625, "moves": 335.5, "secs": 47.089}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 8, "n": 8, "mps": 4.430665, "mps_se": 0.02291402401213223, "ups": 1103.3493375, "moves": 1701.375, "secs": 0.42374999999999996}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 8, "n": 8, "mps": 2.97460875, "mps_se": 0.015506623174527244, "ups": 27148.5042375, "moves": 1142.25, "secs": 10.424999999999999}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 16, "n": 8, "mps": 1.65332125, "mps_se": 0.009960182771827742, "ups": 14.892587500000001, "moves": 2539.5, "secs": 0.022875}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 16, "n": 8, "mps": 1.55786125, "mps_se": 0.009691296249267753, "ups": 15.380875, "moves": 2392.875, "secs": 0.023625}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 16, "n": 8, "mps": 1.21704, "mps_se": 0.004269689684274482, "ups": 830.81055, "moves": 1869.375, "secs": 1.276125}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 16, "n": 8, "mps": 1.1324862500000001, "mps_se": 0.00810184192847087, "ups": 738.199875, "moves": 1739.5, "secs": 1.133875}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 16, "n": 8, "mps": 1.0539562500000001, "mps_se": 0.005981704229654913, "ups": 900.5533875, "moves": 1618.875, "secs": 1.38325}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 16, "n": 8, "mps": 1.01106875, "mps_se": 0.002113175874551311, "ups": 1432.047525, "moves": 1553.0, "secs": 2.199625}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 16, "n": 8, "mps": 0.99153625, "mps_se": 0.0015456343329104086, "ups": 10049.1536375, "moves": 1523.0, "secs": 15.4355}, {"solver": "gullicube", "config": "b1024", "label": "quality, beam 1024", "order": 7, "N": 16, "n": 8, "mps": 0.95865875, "mps_se": 0.00371784953083481, "ups": 41583.496100000004, "moves": 1472.5, "secs": 63.872249999999994}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 16, "n": 8, "mps": 3.8028975000000003, "mps_se": 0.024022035921658032, "ups": 259.25586250000003, "moves": 5841.25, "secs": 0.39825}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 16, "n": 8, "mps": 3.23120125, "mps_se": 0.01050963052182886, "ups": 6682.9925375, "moves": 4963.125, "secs": 10.26525}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 32, "n": 4, "mps": 1.74813, "mps_se": 0.004821837478251065, "ups": 3.9469000000000003, "moves": 10740.5, "secs": 0.02425}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 32, "n": 4, "mps": 1.6399325, "mps_se": 0.00424910064013551, "ups": 4.31315, "moves": 10075.75, "secs": 0.0265}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 32, "n": 4, "mps": 1.26477, "mps_se": 0.0010278942876904666, "ups": 196.411125, "moves": 7770.75, "secs": 1.20675}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 32, "n": 4, "mps": 1.16032, "mps_se": 0.004937990481967329, "ups": 171.223975, "moves": 7129.0, "secs": 1.052}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 32, "n": 4, "mps": 1.08618, "mps_se": 0.007969437454007243, "ups": 181.80335, "moves": 6673.5, "secs": 1.117}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 32, "n": 4, "mps": 1.049195, "mps_se": 0.002768156727258562, "ups": 449.829125, "moves": 6446.25, "secs": 2.76375}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 32, "n": 4, "mps": 1.0203425, "mps_se": 0.004889353016163453, "ups": 3699.3408, "moves": 6269.0, "secs": 22.728749999999998}, {"solver": "gullicube", "config": "b1024", "label": "quality, beam 1024", "order": 7, "N": 32, "n": 2, "mps": 0.98584, "mps_se": 0.004720000000000002, "ups": 19470.3776, "moves": 6057.0, "secs": 119.626}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 32, "n": 4, "mps": 3.1110425, "mps_se": 0.002261280518496864, "ups": 63.63935, "moves": 19114.25, "secs": 0.39075000000000004}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 32, "n": 4, "mps": 2.7684325, "mps_se": 0.008149392998868079, "ups": 67.485725, "moves": 17009.25, "secs": 0.41474999999999995}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 64, "n": 2, "mps": 1.794125, "mps_se": 0.007994999999999974, "ups": 1.4038499999999998, "moves": 44092.5, "secs": 0.0345}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 64, "n": 2, "mps": 1.67812, "mps_se": 0.008159999999999945, "ups": 2.13625, "moves": 41241.5, "secs": 0.0525}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 64, "n": 2, "mps": 1.24359, "mps_se": 0.0004299999999999304, "ups": 22.6237, "moves": 30562.5, "secs": 0.556}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 64, "n": 2, "mps": 1.136495, "mps_se": 0.0018150000000000108, "ups": 28.5034, "moves": 27930.5, "secs": 0.7005}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 64, "n": 2, "mps": 1.06301, "mps_se": 0.0033600000000000296, "ups": 61.4624, "moves": 26124.5, "secs": 1.5105}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 64, "n": 2, "mps": 1.013935, "mps_se": 0.0009550000000000392, "ups": 220.35725000000002, "moves": 24918.5, "secs": 5.4155}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 64, "n": 2, "mps": 0.97917, "mps_se": 4.000000000004e-05, "ups": 2143.85985, "moves": 24064.0, "secs": 52.6875}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 64, "n": 2, "mps": 2.486025, "mps_se": 0.012834999999999928, "ups": 16.6557, "moves": 61096.5, "secs": 0.4095}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 64, "n": 2, "mps": 2.1526300000000003, "mps_se": 0.002160000000000162, "ups": 22.40095, "moves": 52903.0, "secs": 0.5505}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 128, "n": 1, "mps": 1.82147, "mps_se": 0, "ups": 0.7019, "moves": 179058.0, "secs": 0.069}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 128, "n": 1, "mps": 1.70014, "mps_se": 0, "ups": 1.3936, "moves": 167131.0, "secs": 0.137}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 128, "n": 1, "mps": 1.22448, "mps_se": 0, "ups": 18.4733, "moves": 120371.0, "secs": 1.816}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 128, "n": 1, "mps": 1.11049, "mps_se": 0, "ups": 22.349, "moves": 109166.0, "secs": 2.197}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 128, "n": 1, "mps": 1.04373, "mps_se": 0, "ups": 49.53, "moves": 102603.0, "secs": 4.869}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 128, "n": 1, "mps": 0.99084, "mps_se": 0, "ups": 201.3346, "moves": 97404.0, "secs": 19.792}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 128, "n": 1, "mps": 0.96058, "mps_se": 0, "ups": 1278.5746, "moves": 94429.0, "secs": 125.689}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 128, "n": 1, "mps": 2.0855, "mps_se": 0, "ups": 4.6997, "moves": 205013.0, "secs": 0.462}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 128, "n": 1, "mps": 1.67605, "mps_se": 0, "ups": 8.2764, "moves": 164762.0, "secs": 0.814}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 256, "n": 1, "mps": 1.83341, "mps_se": 0, "ups": 0.5035, "moves": 720926.0, "secs": 0.198}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 256, "n": 1, "mps": 1.70986, "mps_se": 0, "ups": 0.7299, "moves": 672345.0, "secs": 0.287}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 256, "n": 1, "mps": 1.21553, "mps_se": 0, "ups": 7.4259, "moves": 477966.0, "secs": 2.92}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 256, "n": 1, "mps": 1.10229, "mps_se": 0, "ups": 13.0768, "moves": 433437.0, "secs": 5.142}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 256, "n": 1, "mps": 1.02053, "mps_se": 0, "ups": 40.6443, "moves": 401290.0, "secs": 15.982}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 256, "n": 1, "mps": 0.97418, "mps_se": 0, "ups": 134.6359, "moves": 383062.0, "secs": 52.941}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 256, "n": 1, "mps": 1.6752, "mps_se": 0, "ups": 1.1652, "moves": 658715.0, "secs": 0.458}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 256, "n": 1, "mps": 1.38855, "mps_se": 0, "ups": 4.2291, "moves": 545999.0, "secs": 1.663}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 512, "n": 1, "mps": 1.84061, "mps_se": 0, "ups": 0.2549, "moves": 2895023.0, "secs": 0.401}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 512, "n": 1, "mps": 1.71526, "mps_se": 0, "ups": 0.3732, "moves": 2697872.0, "secs": 0.587}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 512, "n": 1, "mps": 1.20164, "mps_se": 0, "ups": 4.8618, "moves": 1890019.0, "secs": 7.647}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 512, "n": 1, "mps": 1.09161, "mps_se": 0, "ups": 11.3729, "moves": 1716952.0, "secs": 17.888}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 512, "n": 1, "mps": 1.01151, "mps_se": 0, "ups": 37.3433, "moves": 1590973.0, "secs": 58.736}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 512, "n": 1, "mps": 0.9658, "mps_se": 0, "ups": 101.0799, "moves": 1519066.0, "secs": 158.985}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 512, "n": 1, "mps": 0.93653, "mps_se": 0, "ups": 485.6745, "moves": 1473033.0, "secs": 763.9}, {"solver": "gullicube", "config": "b1024", "label": "quality, beam 1024", "order": 7, "N": 512, "n": 1, "mps": 0.91205, "mps_se": 0, "ups": 2547.5972, "moves": 1434531.0, "secs": 4007.024}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 512, "n": 1, "mps": 1.39483, "mps_se": 0, "ups": 0.2953, "moves": 2193883.0, "secs": 0.465}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 512, "n": 1, "mps": 1.19222, "mps_se": 0, "ups": 1.8898, "moves": 1875199.0, "secs": 2.972}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 1024, "n": 1, "mps": 1.84258, "mps_se": 0, "ups": 0.2594, "moves": 11592495.0, "secs": 1.632}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 1024, "n": 1, "mps": 1.7171, "mps_se": 0, "ups": 0.3277, "moves": 10803041.0, "secs": 2.062}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 1024, "n": 1, "mps": 1.19603, "mps_se": 0, "ups": 3.3865, "moves": 7524782.0, "secs": 21.306}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 1024, "n": 1, "mps": 1.07936, "mps_se": 0, "ups": 8.0152, "moves": 6790775.0, "secs": 50.427}, {"solver": "gullicube", "config": "b16", "label": "quality, beam 16", "order": 4, "N": 1024, "n": 1, "mps": 1.00973, "mps_se": 0, "ups": 26.2114, "moves": 6352652.0, "secs": 164.908}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 1024, "n": 1, "mps": 0.96238, "mps_se": 0, "ups": 101.457, "moves": 6054779.0, "secs": 638.312}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 1024, "n": 1, "mps": 0.93119, "mps_se": 0, "ups": 413.9886, "moves": 5858529.0, "secs": 2604.591}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 1024, "n": 1, "mps": 1.20845, "mps_se": 0, "ups": 0.0887, "moves": 7602935.0, "secs": 0.558}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 1024, "n": 1, "mps": 1.05626, "mps_se": 0, "ups": 0.8486, "moves": 6645390.0, "secs": 5.339}, {"solver": "gullicube", "config": "fast", "label": "fast", "order": 0, "N": 2048, "n": 1, "mps": 1.84446, "mps_se": 0, "ups": 0.2577, "moves": 46417271.0, "secs": 6.485}, {"solver": "gullicube", "config": "fast+finish", "label": "fast + finish table", "order": 1, "N": 2048, "n": 1, "mps": 1.7183, "mps_se": 0, "ups": 0.3146, "moves": 43242506.0, "secs": 7.917}, {"solver": "gullicube", "config": "b1", "label": "quality, beam 1", "order": 2, "N": 2048, "n": 1, "mps": 1.19102, "mps_se": 0, "ups": 3.3301, "moves": 29972941.0, "secs": 83.804}, {"solver": "gullicube", "config": "b4", "label": "quality, beam 4", "order": 3, "N": 2048, "n": 1, "mps": 1.06982, "mps_se": 0, "ups": 7.8645, "moves": 26922901.0, "secs": 197.917}, {"solver": "gullicube", "config": "b64", "label": "quality, beam 64", "order": 5, "N": 2048, "n": 1, "mps": 0.95702, "mps_se": 0, "ups": 91.9495, "moves": 24084103.0, "secs": 2313.986}, {"solver": "gullicube", "config": "b256", "label": "quality, beam 256", "order": 6, "N": 2048, "n": 1, "mps": 0.9275, "mps_se": 0, "ups": 386.22, "moves": 23341338.0, "secs": 9719.545}, {"solver": "brobdicube", "config": "greedy-plan", "label": "brobdicube -g", "order": 8, "N": 2048, "n": 1, "mps": 1.036, "mps_se": 0, "ups": 0.0276, "moves": 26071685.0, "secs": 0.695}, {"solver": "brobdicube", "config": "default", "label": "brobdicube", "order": 9, "N": 2048, "n": 1, "mps": 0.94554, "mps_se": 0, "ups": 0.3296, "moves": 23795391.0, "secs": 8.296}];
+const DWALTON = [{"N": 4, "mps": 0.7458333333333332, "moves": 71.6}, {"N": 5, "mps": 0.6593333333333333, "moves": 98.9}, {"N": 6, "mps": 0.7208333333333333, "moves": 155.7}, {"N": 7, "mps": 0.7272108843537415, "moves": 213.8}, {"N": 8, "mps": 0.85, "moves": 326.4}, {"N": 9, "mps": 0.7995884773662552, "moves": 388.6}, {"N": 10, "mps": 0.9056666666666666, "moves": 543.4}];
+const INFO = {"threads": "16", "load": "3\u201376", "rows": 340};
+(function () {
+  const sizes = [...new Set(DATA.map(d => d.N))].sort((a, b) => a - b);
+  const fmt = (v, s) => v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(s ? 0 : 1) : v >= 1 ? v.toFixed(2) : v.toPrecision(2);
+  const big = v => v >= 1e6 ? (v / 1e6).toFixed(2) + "M" : v >= 1e4 ? (v / 1e3).toFixed(1) + "k" : v.toFixed(v < 100 ? 1 : 0);
+  document.getElementById("machine").textContent =
+    `${INFO.rows} runs on one shared 16-core machine (${INFO.threads} threads; 1-minute load average ${INFO.load} during the runs). ` +
+    `Several seeds at small sizes (8 up to 16³, 4 at 32³, 2 at 64³), one beyond; points are means, with the standard error of moves per sticker in the table.`;
+
+  const panels = document.getElementById("panels");
+  const W = 320, H = 232, m = { l: 44, r: 12, t: 10, b: 30 };
+  const decades = (lo, hi) => { const r = []; for (let e = Math.floor(Math.log10(lo)); e <= Math.ceil(Math.log10(hi)); e++) r.push(Math.pow(10, e)); return r; };
+  const ns = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(ns, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent && parent.appendChild(e); return e; };
+
+  for (const N of sizes) {
+    const pts = DATA.filter(d => d.N === N);
+    const ours = pts.filter(d => d.solver === "gullicube").sort((a, b) => a.ups - b.ups);
+    const brobAll = pts.filter(d => d.solver === "brobdicube");
+    const dw = DWALTON.find(d => d.N === N);
+    // scale to gullicube's curve (and dwalton's line); brobdicube is drawn only
+    // when it falls near that range, otherwise it is reported under the panel
+    const oursMax = ours.length ? Math.max(...ours.map(d => d.mps)) : Infinity;
+    const brob = brobAll.filter(d => d.mps <= 1.5 * oursMax);
+    const offScale = brobAll.filter(d => !brob.includes(d));
+    const scaled = ours.concat(brob);
+    const xs = scaled.map(d => d.ups), ys = scaled.map(d => d.mps).concat(dw ? [dw.mps] : []);
+    let x0 = Math.min(...xs) / 1.6, x1 = Math.max(...xs) * 1.6;
+    let y0 = Math.min(...ys) / 1.12, y1 = Math.max(...ys) * 1.12;
+    const lx = v => m.l + (Math.log(v) - Math.log(x0)) / (Math.log(x1) - Math.log(x0)) * (W - m.l - m.r);
+    const ly = v => H - m.b - (Math.log(v) - Math.log(y0)) / (Math.log(y1) - Math.log(y0)) * (H - m.t - m.b);
+
+    const fig = document.createElement("figure");
+    const bestOurs = ours.length ? Math.min(...ours.map(d => d.mps)) : NaN;
+    const brobDef = brobAll.find(d => d.config === "default");
+    const cap = document.createElement("figcaption");
+    cap.innerHTML = `<b>${N}×${N}×${N}</b><small>${(6 * N * N).toLocaleString()} stickers</small>`;
+    fig.appendChild(cap);
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img",
+      "aria-label": `${N} cubed: moves per sticker against microseconds per sticker` }, fig);
+    // grid: decades on x; a few ticks on y
+    for (const v of decades(x0, x1)) {
+      for (const k of [1, 2, 5]) {
+        const t = v * k;
+        if (t < x0 || t > x1) continue;
+        el("line", { x1: lx(t), x2: lx(t), y1: m.t, y2: H - m.b, stroke: "var(--grid)", "stroke-width": k === 1 ? 1 : 0.5 }, svg);
+        if (k === 1 || (Math.log10(x1 / x0) < 1.5 && k !== 1)) {
+          const tx = el("text", { x: lx(t), y: H - m.b + 13, "text-anchor": "middle" }, svg);
+          tx.textContent = t >= 1000 ? (t / 1000) + "k" : String(+t.toPrecision(2));
+        }
+      }
+    }
+    const ystep = [0.05, 0.1, 0.2, 0.25, 0.5, 1].find(s => (y1 - y0) / s <= 6) || 1;
+    for (let t = Math.ceil(y0 / ystep) * ystep; t <= y1; t += ystep) {
+      el("line", { x1: m.l, x2: W - m.r, y1: ly(t), y2: ly(t), stroke: "var(--grid)", "stroke-width": 0.75 }, svg);
+      const ty = el("text", { x: m.l - 6, y: ly(t) + 3.5, "text-anchor": "end" }, svg);
+      ty.textContent = t.toFixed(ystep < 0.1 ? 2 : ystep < 1 ? (ystep === 0.25 ? 2 : 1) : 0);
+    }
+    el("line", { x1: m.l, x2: m.l, y1: m.t, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1 }, svg);
+    el("line", { x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: "var(--axis)", "stroke-width": 1 }, svg);
+    const xl = el("text", { x: W - m.r, y: H - 2, "text-anchor": "end" }, svg); xl.textContent = "µs per sticker";
+    const yl = el("text", { x: 4, y: m.t - 1 + 8, "text-anchor": "start" }, svg); yl.textContent = "moves/sticker";
+    // dwalton reference line
+    if (dw) {
+      el("line", { x1: m.l, x2: W - m.r, y1: ly(dw.mps), y2: ly(dw.mps), stroke: "var(--dwalton)", "stroke-width": 1.5, "stroke-dasharray": "4 3" }, svg);
+      const t = el("text", { x: W - m.r - 2, y: ly(dw.mps) - 4, "text-anchor": "end", style: "fill:var(--dwalton)" }, svg);
+      t.textContent = "dwalton76";
+    }
+    // our curve
+    if (ours.length) {
+      el("polyline", { points: ours.map(d => `${lx(d.ups)},${ly(d.mps)}`).join(" "), fill: "none", stroke: "var(--ours)", "stroke-width": 1.75 }, svg);
+      ours.forEach((d, i) => {
+        const c = el("circle", { cx: lx(d.ups), cy: ly(d.mps), r: 3.4, fill: "var(--ours)", stroke: "var(--panel)", "stroke-width": 1.2 }, svg);
+        el("title", {}, c).textContent = `${d.label}: ${d.mps.toFixed(3)} moves/sticker, ${fmt(d.ups)} µs/sticker (${big(d.moves)} moves, ${d.secs.toFixed(2)} s, ${d.n} run${d.n > 1 ? "s" : ""})`;
+        const short = d.config.replace("fast+finish", "fast+fin").replace(/^b(\d+)$/, "w$1");
+        const t = el("text", { x: lx(d.ups) + 5, y: ly(d.mps) + (i % 2 ? 11 : -5), style: "fill:var(--ours)" }, svg);
+        t.textContent = short;
+      });
+    }
+    // brobdicube
+    for (const d of brob) {
+      const x = lx(d.ups), y = ly(d.mps), s = 4.2;
+      const p = el("path", { d: `M${x} ${y - s}L${x + s} ${y}L${x} ${y + s}L${x - s} ${y}Z`, fill: d.config === "default" ? "var(--brob)" : "var(--panel)", stroke: "var(--brob)", "stroke-width": 1.5 }, svg);
+      el("title", {}, p).textContent = `${d.label}: ${d.mps.toFixed(3)} moves/sticker, ${fmt(d.ups)} µs/sticker (${big(d.moves)} moves, ${d.secs.toFixed(2)} s)`;
+      const t = el("text", { x: x - 6, y: y - 6, "text-anchor": "end", style: "fill:var(--brob)" }, svg);
+      t.textContent = d.config === "default" ? "brob" : "brob -g";
+    }
+    // one-line reading of the panel
+    const note = document.createElement("p");
+    note.className = "note";
+    if (brobDef && ours.length) {
+      const fewer = ours.filter(d => d.mps < brobDef.mps);
+      if (fewer.length) {
+        const fastest = fewer.reduce((a, b) => a.ups < b.ups ? a : b);
+        note.textContent = `Fewer moves than brobdicube from "${fastest.label}" (${(100 * (1 - fastest.mps / brobDef.mps)).toFixed(0)}% shorter, ${fastest.ups < brobDef.ups ? "faster" : (fastest.ups / brobDef.ups).toFixed(1) + "× the time"}); best ${(100 * (1 - bestOurs / brobDef.mps)).toFixed(0)}% shorter.`;
+      } else note.textContent = `brobdicube is shorter than every gullicube setting measured here (best gullicube ${(100 * (bestOurs / brobDef.mps - 1)).toFixed(0)}% longer).`;
+    }
+    fig.appendChild(note);
+    if (offScale.length) {
+      const off = document.createElement("p");
+      off.className = "note";
+      off.textContent = "Off scale: " + offScale.map(d => `${d.label} ${d.mps.toFixed(2)} moves/sticker at ${fmt(d.ups, true)} µs/sticker`).join("; ") + ".";
+      fig.appendChild(off);
+    }
+    panels.appendChild(fig);
+  }
+
+  const tb = document.querySelector("#tbl tbody");
+  let lastN = null;
+  for (const d of DATA) {
+    const tr = document.createElement("tr");
+    if (lastN !== null && d.N !== lastN) tr.className = "sep";
+    lastN = d.N;
+    const col = d.solver === "gullicube" ? "var(--ours)" : "var(--brob)";
+    tr.innerHTML = `<td class="l">${d.N}</td><td class="l"><span class="tag" style="background:${col}"></span>${d.label}</td><td>${d.n}</td>` +
+      `<td>${d.mps.toFixed(4)}</td><td>${d.mps_se ? d.mps_se.toFixed(4) : "–"}</td><td>${fmt(d.ups)}</td><td>${big(d.moves)}</td><td>${d.secs.toFixed(2)}</td>`;
+    tb.appendChild(tr);
+  }
+})();
+</script>

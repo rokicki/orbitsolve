@@ -1,0 +1,36 @@
+# ./diagcheck /Users/rokicki/orbitsolve/cert/diag/centres-first/stages/none..D
+stage none..D: 0 solved groups kept, 1 target groups; 5 segment files
+lines: 1381, 0 bad, 0 in the wrong segment; longest 10; lengths: 0:1 4:13 5:22 6:150 7:353 8:534 9:279 10:29 (0s)
+classes: 1381 distinct positions, 0 lines repeat a class already listed; 8 cube symmetries keep the stage
+  w00: 1 lines, longest 0, 1 stage states, 0 not covered
+  w01: 11 lines, longest 7, 80 stage states, 0 not covered
+  w02: 155 lines, longest 8, 1140 stage states, 0 not covered
+  w03: 579 lines, longest 9, 4560 stage states, 0 not covered
+  w04: 635 lines, longest 10, 4845 stage states, 0 not covered
+coverage checked (0s)
+side effects on 4x4x4, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 0 keep colours but move other centre pieces (not pure), 1381 pure
+side effects on 5x5x5, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 6x6x6, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 6x6x6, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 7x7x7, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 7x7x7, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 8x8x8, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 8x8x8, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 8x8x8, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 9x9x9, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 9x9x9, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 9x9x9, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 10x10x10, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 10x10x10, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 10x10x10, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 10x10x10, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 11x11x11, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 11x11x11, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 11x11x11, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 11x11x11, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 12x12x12, diagonal depth 2: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 12x12x12, diagonal depth 3: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 12x12x12, diagonal depth 4: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 12x12x12, diagonal depth 5: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+side effects on 12x12x12, diagonal depth 6: 0 move another centre off its colour, 0 move the diagonal orbit unlike the reference, 627 keep colours but move other centre pieces (not pure), 754 pure
+PASS: every stage state in these segments is solved in at most 10 moves (0s)

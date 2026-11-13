@@ -1,0 +1,5 @@
+pre[6 1.0] W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 65.39 (sd 3.31, /orbit 32.70, raw 65.39)  algs 8.88  4558.4 ms/pair
+pre[6 0.75] W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 67.62 (sd 3.97, /orbit 33.81, raw 67.62)  algs 9.53  3932.4 ms/pair
+pre[4 0.75] W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 69.78 (sd 4.39, /orbit 34.89, raw 69.78)  algs 10.69  4187.9 ms/pair
+pre[8 0.75] W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 66.17 (sd 3.76, /orbit 33.09, raw 66.17)  algs 8.72  3674.0 ms/pair
+pre[8 1.0] W=8 l=1.00 pool=1172928 nocancel solved 64/64  moves 64.97 (sd 3.48, /orbit 32.48, raw 64.97)  algs 8.52  4127.0 ms/pair

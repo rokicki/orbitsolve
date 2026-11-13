@@ -1,0 +1,28 @@
+# ./certsolve 9 --solvedobl --seed 9 --cubes 2 --threads 16 --cache /var/tmp/orbitsolve/certcache
+# seed 9
+# N=9: 3 oblique pairs (started solved: --solvedobl); mode table lines (plain sum)
+# per orbit: oblique pair 80, mid 39, diagonal 44, wing 162; corners and midges 20; 3 mid, 3 diagonal, 3 wing orbits; whole-cube bound 995
+cube 1 mid 2: UD 16 + LFRB 16 = 32
+cube 1 mid 3: UD 14 + LFRB 18 = 32
+cube 1 mid 4: UD 13 + LFRB 18 = 31
+cube 1 diagonal 2: D 8 + U 13 + LFRB 15 = 36
+cube 1 diagonal 3: D 7 + U 13 + LFRB 16 = 36
+cube 1 diagonal 4: D 6 + U 14 + LFRB 16 = 36
+cube 1 corners and midges: 20
+cube 1 wing 2: 4 wings 22 + 4 wings 24 + 5 wings 33 + 11 wings 40 = 119
+cube 1 wing 3: 4 wings 23 + 4 wings 26 + 5 wings 32 + 11 wings 47 = 128
+cube 1 wing 4: 4 wings 30 + 4 wings 30 + 5 wings 24 + 11 wings 47 = 131
+cube 1 solved: obliques 0 + mids 95 + diagonals 108 + corners and midges 20 + wings 378 = 601 moves (bound 995)
+cube 2 mid 2: UD 16 + LFRB 16 = 32
+cube 2 mid 3: UD 13 + LFRB 18 = 31
+cube 2 mid 4: UD 16 + LFRB 17 = 33
+cube 2 diagonal 2: D 10 + U 13 + LFRB 15 = 38
+cube 2 diagonal 3: D 9 + U 13 + LFRB 16 = 38
+cube 2 diagonal 4: D 10 + U 13 + LFRB 14 = 37
+cube 2 corners and midges: 20
+cube 2 wing 2: 4 wings 14 + 4 wings 24 + 5 wings 32 + 11 wings 55 = 125
+cube 2 wing 3: 4 wings 22 + 4 wings 16 + 5 wings 24 + 11 wings 35 = 97
+cube 2 wing 4: 4 wings 27 + 4 wings 31 + 5 wings 32 + 11 wings 33 = 123
+cube 2 solved: obliques 0 + mids 96 + diagonals 113 + corners and midges 20 + wings 345 = 574 moves (bound 995)
+cubes solved 2, most moves 601, bound 995
+over a bound: 0 (1108s)
