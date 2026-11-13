@@ -502,11 +502,12 @@ int main(int argc, char **argv) {
     arenaEnd += 1 + by.size();
     return off;
   };
+  // (atomics via compiler builtins: armory's libc++ has no std::atomic_ref)
   // a bit per shortened position, for the output
   std::vector<uint64_t> overBit((dist.size() + 63) / 64, 0);
   auto lineOf = [&](uint64_t r) {
     std::vector<cc::Mv> mv;
-    const uint64_t v = std::atomic_ref<uint64_t>(src[r]).load(std::memory_order_acquire);
+    const uint64_t v = __atomic_load_n(&src[r], __ATOMIC_ACQUIRE);
     if (v & ARENA) {
       const uint64_t off = (v & ~ARENA) >> 6;
       const uint8_t *q = arena[off / BLK] + off % BLK;
@@ -517,7 +518,7 @@ int main(int argc, char **argv) {
     }
     return symMoves(syms[v & 63], mv);
   };
-  auto distAt = [&](uint64_t r) { return std::atomic_ref<uint8_t>(dist[r]).load(std::memory_order_relaxed); };
+  auto distAt = [&](uint64_t r) { return __atomic_load_n(&dist[r], __ATOMIC_RELAXED); };
   // low[t]: a bit per position whose line has at most t moves (t <= W - 2), so that most band
   // lookups touch a small bitset instead of the table
   const uint64_t words = (total + 63) / 64;
@@ -526,7 +527,7 @@ int main(int argc, char **argv) {
     low[t].assign(words, 0);
     for (uint64_t r = 0; r < total; r++) if (dist[r] <= t) low[t][r >> 6] |= 1ULL << (r & 63);
   }
-  auto lowAt = [&](int t, uint64_t r) { return std::atomic_ref<uint64_t>(low[t][r >> 6]).load(std::memory_order_relaxed) >> (r & 63) & 1; };
+  auto lowAt = [&](int t, uint64_t r) { return __atomic_load_n(&low[t][r >> 6], __ATOMIC_RELAXED) >> (r & 63) & 1; };
   std::vector<std::vector<uint64_t>> bucket(256);  // shortened classes by their new length, to propagate
   std::atomic<long> nImproved{0};
   // p (colour indices) is solved by mv: lower p's class wherever mv is shorter
@@ -561,10 +562,10 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < ss.size(); i++) {
       const uint64_t r = rs[i];
       if (L >= dist[r]) continue;
-      std::atomic_ref<uint64_t>(src[r]).store(ARENA | off << 6 | ss[i], std::memory_order_release);
-      std::atomic_ref<uint8_t>(dist[r]).store(L, std::memory_order_relaxed);
-      for (int t2 = L; t2 + 1 < W; t2++) std::atomic_ref<uint64_t>(low[t2][r >> 6]).fetch_or(1ULL << (r & 63), std::memory_order_relaxed);
-      std::atomic_ref<uint64_t>(overBit[r >> 6]).fetch_or(1ULL << (r & 63), std::memory_order_relaxed);
+      __atomic_store_n(&src[r], ARENA | off << 6 | ss[i], __ATOMIC_RELEASE);
+      __atomic_store_n(&dist[r], (uint8_t)L, __ATOMIC_RELAXED);
+      for (int t2 = L; t2 + 1 < W; t2++) __atomic_fetch_or(&low[t2][r >> 6], 1ULL << (r & 63), __ATOMIC_RELAXED);
+      __atomic_fetch_or(&overBit[r >> 6], 1ULL << (r & 63), __ATOMIC_RELAXED);
     }
     bucket[L].push_back(rs[0]), nImproved++;
   };
