@@ -3421,3 +3421,5 @@ the same fold gave 139,735; certcheck PASS (150 s, 2.6 GB); 4op identical to 4op
 identical to 3ax-f6 (546; 317 s, 6.5 GB).  First 3ax/4op try kept nothing: lfilter.py exec'd /var/tmp/orbitsolve/op/
 twsval.py (missing on armory) and fsfoldax.sh carried on; fixed (twsval.py in arena/, fsfoldax.sh stops when lfilter
 fails or keeps no line).  armory ar / aget reach arena with its own key.
+11:00 fold f16 (first refold from git arena/refold.sh; vline PASS x4; certcheck / axcheck PASS): 1ud 17s **2,891**; 2ud
+18s **136,081**; 3ax 546; 4op 14,541.  Arena: 1ud 3,353; 2ud 11,957.
