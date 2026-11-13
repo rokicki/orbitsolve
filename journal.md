@@ -3423,3 +3423,15 @@ twsval.py (missing on armory) and fsfoldax.sh carried on; fixed (twsval.py in ar
 fails or keeps no line).  armory ar / aget reach arena with its own key.
 11:00 fold f16 (first refold from git arena/refold.sh; vline PASS x4; certcheck / axcheck PASS): 1ud 17s **2,891**; 2ud
 18s **136,081**; 3ax 546; 4op 14,541.  Arena: 1ud 3,353; 2ud 11,957.
+12:20 handover tooling (arena/, git): refold.sh now takes no arguments (per stage optfs/<st>/{outs,lines.txt,lastfold}:
+fetches every open run, folds only stages whose prod-improved.txt changed, names folds f<N+1>, removes the previous
+fold dir, ubtable, copies prod-improved.txt to arena/results/); mktails.py (next list: K-move tails of the LEN-move
+lines of the latest fold, not queued before; adds the lines to lines.txt); alaunch.sh (start a run: solve8b +
+FTNOBUILD=1, so it never builds; --build after a reboot), astop.sh (exact pids), aclose.sh (close a run, cut
+all.txt to what it searched), astatus.sh; RUNBOOK.md for the armory Claude.  outs rows written for all runs (4op
+all.txt cut to its 22,521 searched tails, 3ax to 374; backups all.txt.bak-20261113).  pid files on arena for the
+running 1ud prod2 (2004954) and 2ud prod4 (2004618).
+Refold with the new script: 1ud f17 17s **2,838**; 2ud f17 18s **133,281**; 4op/3ax no change.  Test run 4op t3
+(alaunch/aclose; solve8b mapped 4op-300): 3 15-move tails of the fold f7u's 22-move lines (different representatives
+from the original lines: 14,530 of 14,541 lines new to lines.txt) -> **3 of 3 shortened** (108-336 s each, sharing
+node 1 with 2ud).  So 4op's "stall" was the original representatives' tails; the fold's own lines give fresh tails.
