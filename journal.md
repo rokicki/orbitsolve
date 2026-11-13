@@ -3435,3 +3435,4 @@ Refold with the new script: 1ud f17 17s **2,838**; 2ud f17 18s **133,281**; 4op/
 (alaunch/aclose; solve8b mapped 4op-300): 3 15-move tails of the fold f7u's 22-move lines (different representatives
 from the original lines: 14,530 of 14,541 lines new to lines.txt) -> **3 of 3 shortened** (108-336 s each, sharing
 node 1 with 2ud).  So 4op's "stall" was the original representatives' tails; the fold's own lines give fresh tails.
+12:55 [armory] first refold on armory (handover test, run by the laptop Claude over ssh): 1ud f18 17s **2,832**; 2ud f18 18s **133,140**; 4op f8 22s **14,535** (the 3 t3 finds); 3ax f6 546; vline / certcheck / axcheck PASS.  From here armory runs arena and the refolds (arena/RUNBOOK.md); the laptop stopped its refold cycle.
