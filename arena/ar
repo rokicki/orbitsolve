@@ -1,0 +1,4 @@
+#!/bin/bash
+# ar CMD...: run a command on arena (ARENA_HOST, default 10.0.0.155; key ~/.ssh/id_gizmo if present, else the default key)
+K=(); [ -f "$HOME/.ssh/id_gizmo" ] && K=(-i "$HOME/.ssh/id_gizmo")
+exec ssh "${K[@]}" -o BatchMode=yes "${ARENA_HOST:-10.0.0.155}" "$@"

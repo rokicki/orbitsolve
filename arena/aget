@@ -1,0 +1,4 @@
+#!/bin/bash
+# aget REMOTE LOCAL: copy a file from arena (path relative to the arena home)
+K=(); [ -f "$HOME/.ssh/id_gizmo" ] && K=(-i "$HOME/.ssh/id_gizmo")
+exec scp -q "${K[@]}" -o BatchMode=yes "${ARENA_HOST:-10.0.0.155}:$1" "$2"
