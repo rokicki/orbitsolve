@@ -3409,3 +3409,15 @@ direct -> 18s **139,685**.  Arena: 1ud 3,221; 2ud 11,031.  Superseded 1ud-f14/2u
 09:00 user: repo (~/orbitsolve/repo) remote 'obliques' = https://github.com/rokicki/obliques.git (public); pushed main (41a4b43, the 11-09 commit, P 80 certificate).  HTTPS via gh; pushes failed with LibreSSL 'bad record mac' until http.version HTTP/1.1 (now set in the repo's config).  User also made rokicki/orbitsolve for this directory.
 09:25 armory: FileVault is On (laptop: Off), so after a power loss armory waits at the unlock screen; user keeps it (no decryption now; clean reinstall later).  A power loss on armory stops its Claude until the user is back.  Remote Control session listed as '--name armory'.
 09:50 pypy on PATH, both machines: ~/pypy/current -> installed version (laptop pypybin 3.10, armory ~/pypy/pypy3.12-v8.0.1), PATH in ~/.zshenv (backups .zshenv.bak-20261113; armory .zshrc line 6 pointed at ~/pypy3-install (3.9) now at ~/pypy/current, backup .zshrc.bak-20261113).  fsfold.sh / refold.sh use $(command -v pypy3).
+10:10 armory set up for folds (user: move everything needed, test a fold).  Scripts in git: arena/ (ar, aget, arwatch.sh,
+refold.sh, fsfold.sh, fsfoldax.sh, fold.py, vline.py, inv.py, lfilter.py + twsval.py, ubtable.py, runner.sh, mkqueue.py;
+README.md lists the data); devtools/tws/obl8ax-nr.tws, obl8op-nr.tws.  Data rsynced to the same paths (7.5 GB, 4 min):
+optfs/{1ud,2ud,3ax,4op,full}, ax-m3.tab, 4op-m1.tab, fold/pools (symlinks resolved), dist/gullicube/data 5 .cls,
+fsfold/{3ax-f6,4op-f7u}.  Binaries built on armory (Apple clang 16): certextend needed std::atomic_ref -> __atomic
+builtins (committed; laptop rebuilt from the same source, old binary /var/tmp/orbitsolve/certextend.bin-pre-builtins).
+Test on armory from the f15 inputs: 1ud identical to laptop f15 (17s 2,998; all lengths equal; 345 s, 5.9 GB peak);
+2ud 18s 139,766 vs laptop 139,685 -- certextend is not run-to-run deterministic (threads): the laptop's own rerun of
+the same fold gave 139,735; certcheck PASS (150 s, 2.6 GB); 4op identical to 4op-f7u (14,541; 143 s, 4.1 GB); 3ax
+identical to 3ax-f6 (546; 317 s, 6.5 GB).  First 3ax/4op try kept nothing: lfilter.py exec'd /var/tmp/orbitsolve/op/
+twsval.py (missing on armory) and fsfoldax.sh carried on; fixed (twsval.py in arena/, fsfoldax.sh stops when lfilter
+fails or keeps no line).  armory ar / aget reach arena with its own key.
