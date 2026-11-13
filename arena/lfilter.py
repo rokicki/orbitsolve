@@ -2,8 +2,8 @@
 # is a solving sequence; its position is the inverse line run on Solved.  Checks that the position
 # has every non-pair set colour-solved (the line keeps the other oblique orbits) and is a stage start
 # (pair U/D solved; for op also every piece on its axis).  Reports counts per file.
-import sys
-exec(open('/var/tmp/orbitsolve/op/twsval.py').read().split("sets,S,M=parse")[0])
+import sys, os
+exec(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'twsval.py')).read().split("sets,S,M=parse")[0])
 sets,S,M=parse(sys.argv[1]); mode=sys.argv[2]
 pair=['CENTERS2','CENTERS5']
 axis={1:'ud',6:'ud',2:'lr',4:'lr',3:'fb',5:'fb'}

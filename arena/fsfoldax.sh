@@ -19,8 +19,9 @@ mkdir -p $R
 cut -d' ' -f3- /var/tmp/orbitsolve/optfs/$st/prod-improved.txt > $R/full.txt
 grep -q "[xyz]" $R/full.txt && { echo "rotation in lines; stop"; exit 1; }
 awk '{for(i=1;i<=NF;i++){s=$i; for(j=i+1;j<=NF;j++) s=s" "$j; print s}}' $R/full.txt | sort -u > $R/load.txt
-python3 $A/lfilter.py $TW $MODE $R/load.txt > $R/good.txt 2> $R/lfilter.err
+python3 $A/lfilter.py $TW $MODE $R/load.txt > $R/good.txt 2> $R/lfilter.err || { echo "lfilter failed:"; tail -3 $R/lfilter.err; exit 1; }
 echo "lines $(wc -l < $R/full.txt), suffixes $(wc -l < $R/load.txt), valid $(wc -l < $R/good.txt)"
+[ -s $R/full.txt ] && [ ! -s $R/good.txt ] && { echo "no valid lines; stop"; exit 1; }
 cd /var/tmp/orbitsolve/fold
 $D/$ENG --diagok --prop $PROP --rounds 0 --threads 6 --base $BASE --load $R/good.txt --save $R/$st-$2.tab \
   --worst $R/$st-$2.worst --from $FROM pools/pair3.cls pools/p8s10.cls pools/p9.cls pools/eg8.cls pools/c12x.cls \

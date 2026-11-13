@@ -9,7 +9,7 @@ Same paths on every machine; pypy3 must be on PATH (`~/pypy/current`).
 | `ar CMD`, `aget REMOTE LOCAL` | ssh / scp to arena (`ARENA_HOST`; key `~/.ssh/id_gizmo` if present, else the default key) |
 | `arwatch.sh N` | exits with a report when arena runs fewer than N solvers or is idle |
 | `refold.sh U1 U2 O4 A3` | fetch arena `runs/*.out`, `fold.py` + `vline.py` per stage, `fsfold.sh` (1ud, 2ud), `fsfoldax.sh` (4op, 3ax; an existing fold dir is reused), `ubtable.py` |
-| `fold.py`, `vline.py`, `inv.py` | apply tail shortenings to the stage lines; check old/new line pairs on the .tws |
+| `fold.py`, `vline.py`, `inv.py`, `lfilter.py` (+ `twsval.py`) | apply tail shortenings to the stage lines; check old/new line pairs on the .tws |
 | `fsfold.sh 1ud\|2ud NAME` | certmerge + certextend (pool of all finds) + proptop pulls + certcheck, from the expanded P 80 stage |
 | `fsfoldax.sh 3ax\|4op NAME` | lfilter + axbound/opbound --rounds 0 on the base table + axcertupdate + axcheck |
 | `ubtable.py U1 U2 O4 [A3]` | rewrite the upperbound5.md Working tables |
