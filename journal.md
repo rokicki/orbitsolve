@@ -3442,3 +3442,4 @@ node 1 with 2ud).  So 4op's "stall" was the original representatives' tails; the
 11-13 16:51 [armory] fold: 1ud f21 17s **2,557**; 2ud f21 18s **128,946**; 4op f8, 3ax f6 no change; vline PASS x4, certcheck PASS x2; arena 1ud prod2 3,709/6,687 (~33 h left), 2ud prod4 14,611/45,382 (~86 h left).
 11-13 18:51 [armory] fold: 1ud f22 17s **2,452**; 2ud f22 18s **127,916**; 4op f8, 3ax f6 no change; vline PASS x4, certcheck PASS x2; arena 1ud prod2 3,826/6,687 (~32 h left), 2ud prod4 15,490/45,382 (~83 h left).
 11-13 20:51 [armory] fold: 1ud f23 17s **2,368**; 2ud f23 18s **125,624**; 4op f8, 3ax f6 no change; vline PASS x4, certcheck PASS x2; arena 1ud prod2 3,937/6,687 (~31 h left), 2ud prod4 16,363/45,382 (~79 h left).
+11-13 22:51 [armory] fold: 1ud f24 17s **2,320**; 2ud f24 18s **123,863**; 4op f8, 3ax f6 no change; vline PASS x4, certcheck PASS x2; arena 1ud prod2 4,012/6,687 (~31 h left), 2ud prod4 17,232/45,382 (~76 h left).
