@@ -156,7 +156,7 @@ P = 1ud + 2ud + 3ax + 4op, each stage from the previous one's goal, classes up t
 | **classes** | **14,119,851** | **2,936,935** | **10,366,284** | **1,508,387** |
 | **longest** | **17** | **18** | **23** | **22** |
 
-## Working tables (2026-11-16 15:49; arena fastsolve tail folds, not yet in a certificate)
+## Working tables (2026-11-16 16:43; arena fastsolve tail folds, not yet in a certificate)
 
 Base: the expanded P 80 certificate (certsolve --expand: 1ud 17s 5,272, 2ud 18s 286,263; optfs/full).  Arena fastsolve
 (300 GB tables, D=9) searched the tails of the longest lines for shorter replacements; each fold merges the improved
