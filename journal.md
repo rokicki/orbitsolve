@@ -3501,3 +3501,4 @@ node 1 with 2ud).  So 4op's "stall" was the original representatives' tails; the
 11-18 08:51 [armory] fold: 1ud f77 17s 288->265 (prod6 576/861, all shortened); 2ud f79 18s 94,780->94,700 (prod6 567/2000, 119 shortened); vline x4 + certcheck x2 PASS.
 11-18 10:51 [armory] fold: 1ud f78 17s 265->249 (prod6 593/861, all shortened); 2ud f80 18s 94,700->93,908 (prod6 601/2000, 135 shortened, +16 in 2 h); vline x4 + certcheck x2 PASS.
 11-18 12:51 [armory] fold: 1ud f79 17s 249->212 (prod6 634/861, all shortened); 2ud f81 18s 93,908->93,785 (prod6 623/2000, 140 shortened); vline x4 + certcheck x2 PASS.
+11-18 14:51 [armory] fold: 1ud f80 17s 212->179 (prod6 672/861, all shortened); 2ud f82 18s 93,785->93,567 (prod6 649/2000, 145 shortened); vline x4 + certcheck x2 PASS.
