@@ -974,7 +974,7 @@ int main(int argc, char **argv) {
   int N = 0, CUBES = 1, T = std::max(1u, std::thread::hardware_concurrency()), C = 10, SL = 6, DEEP = 6, DP = 8, XUD = 33, XAX = 39;
   long scr = 0;
   uint64_t seed = 0;
-  bool share = false, greedy = false, stagemajor = false; int pickSlack = -1, pickMax = 32, pickMode = 0, shareMode = 0, beamW = 0, beamM = 8, beamAlpha = 100, beamV = 1;  // --beam W: stage-major pair order by a beam search of width W (--beamm M children per node, score = moves so far + alpha/100 * remaining distances)  // --sharemode 1: --share scores a move by the least distance among the other remaining pairs after it  // --pickmode 1: score = line + least distance among the other remaining pairs after it  // --pick S: among pairs within S of the least distance (at most --pickmax), the one whose line + change in the other remaining pairs' distances is least  // --stagemajor: every pair's first stage of a phase, then every pair's second (each in greedy order with --greedy)
+  bool share = false, greedy = false, stagemajor = false; int pickSlack = -1, pickMax = 32, pickMode = 0, shareMode = 0, beamW = 0, beamM = 8, beamAlpha = 100, beamV = 1, beamGamma = 0;  // --beamgamma G: score += G/100 per remaining pair a line changes  // --beam W: stage-major pair order by a beam search of width W (--beamm M children per node, score = moves so far + alpha/100 * remaining distances)  // --sharemode 1: --share scores a move by the least distance among the other remaining pairs after it  // --pickmode 1: score = line + least distance among the other remaining pairs after it  // --pick S: among pairs within S of the least distance (at most --pickmax), the one whose line + change in the other remaining pairs' distances is least  // --stagemajor: every pair's first stage of a phase, then every pair's second (each in greedy order with --greedy)
    // --greedy: solve next the remaining pair whose current stage distance is least  // --share: among a stage's optimal moves, the one leaving the other pairs closest
   long shareFail = 0, shareChecks = 0, shSteps[4] = {0,0,0,0}, shMulti[4] = {0,0,0,0}, shCand[4] = {0,0,0,0}, shSpread[4] = {0,0,0,0}, shGain[4] = {0,0,0,0};
   bool bound = false, oblOnly = false, solvedObl = false, persist = true, autoLen = false;
@@ -1013,6 +1013,7 @@ int main(int argc, char **argv) {
     else if (a == "--beam" && i + 1 < argc) beamW = atoi(argv[++i]);
     else if (a == "--beamm" && i + 1 < argc) beamM = atoi(argv[++i]);
     else if (a == "--beamalpha" && i + 1 < argc) beamAlpha = atoi(argv[++i]);
+    else if (a == "--beamgamma" && i + 1 < argc) beamGamma = atoi(argv[++i]);
     else if (a == "--beamv" && i + 1 < argc) beamV = atoi(argv[++i]);  // up to V optimal lines per pair: the table line, then each optimal first action + table line
     else if (a == "--ud") need(1), XUD = atoi(argv[++i]);
     else if (a == "--ax") need(1), XAX = atoi(argv[++i]);
@@ -1505,7 +1506,7 @@ int main(int argc, char **argv) {
             std::vector<int> bvar;
             long beamCost = -1;
             if (beamW > 0) {
-              struct Node { std::vector<std::array<int8_t, 48>> g; std::vector<int> d; std::vector<char> done; std::vector<size_t> ord; std::vector<int> var; long cost, sum; double score; };
+              struct Node { std::vector<std::array<int8_t, 48>> g; std::vector<int> d; std::vector<char> done; std::vector<size_t> ord; std::vector<int> var; long cost, sum, hitsAcc = 0; double score; };
               std::vector<Node> beam(1);
               Node &n0 = beam[0];
               n0.g.resize(NP), n0.d.resize(NP), n0.done.assign(NP, 0), n0.cost = 0, n0.sum = 0;
@@ -1516,7 +1517,7 @@ int main(int argc, char **argv) {
                 n0.d[j] = S.dist[r], n0.sum += n0.d[j];
               }
               for (size_t dep = 0; dep < NP; dep++) {
-                struct Ch { size_t par, c; int v; long cost, sum; double score; bool ok; };
+                struct Ch { size_t par, c; int v; long cost, sum; double score; bool ok; long hits; };
                 std::vector<Ch> ch;
                 for (size_t bi = 0; bi < beam.size(); bi++) {
                   const Node &n = beam[bi];
@@ -1524,7 +1525,7 @@ int main(int argc, char **argv) {
                   for (size_t j = 0; j < NP; j++) if (!n.done[j]) cs.push_back({n.d[j], j});
                   const size_t m = std::min<size_t>(beamM, cs.size());
                   std::partial_sort(cs.begin(), cs.begin() + m, cs.end());
-                  for (size_t q = 0; q < m; q++) for (int v = 0; v < beamV; v++) ch.push_back({bi, cs[q].second, v, 0, 0, 0, false});
+                  for (size_t q = 0; q < m; q++) for (int v = 0; v < beamV; v++) ch.push_back({bi, cs[q].second, v, 0, 0, 0, false, 0});
                 }
                 // evaluate children: apply the candidate's line to every other remaining pair
                 std::vector<std::vector<std::array<int8_t, 48>>> cg(ch.size());
@@ -1547,13 +1548,14 @@ int main(int argc, char **argv) {
                     bool hit = false;
                     for (auto &mm : P) if (mapMv(mm, pairs[c].first, pairs[c].second, pairs[j].first, pairs[j].second, o)) applyG(o, cg[ci][j].data(), t), memcpy(cg[ci][j].data(), t, 48), hit = true;
                     if (!hit) continue;
+                    ch[ci].hits++;
                     uint64_t r2;
                     if (!S.rankG(cg[ci][j].data(), r2)) { beamErr = 1; continue; }
                     sum += S.dist[r2] - cd[ci][j];
                     cd[ci][j] = S.dist[r2];
                   }
                   ch[ci].cost = n.cost + (long)P.size(), ch[ci].sum = sum;
-                  ch[ci].score = ch[ci].cost + beamAlpha / 100.0 * sum;
+                  ch[ci].score = ch[ci].cost + beamAlpha / 100.0 * sum + beamGamma / 100.0 * (n.hitsAcc + ch[ci].hits);
                 }
                 };
                 {
@@ -1575,7 +1577,7 @@ int main(int argc, char **argv) {
                   n.done = beam[c.par].done, n.done[c.c] = 1;
                   n.ord = beam[c.par].ord, n.ord.push_back(c.c);
                   n.var = beam[c.par].var, n.var.push_back(c.v);
-                  n.cost = c.cost, n.sum = c.sum, n.score = c.score;
+                  n.cost = c.cost, n.sum = c.sum, n.score = c.score, n.hitsAcc = beam[c.par].hitsAcc + c.hits;
                   nb.push_back(std::move(n));
                 }
                 beam = std::move(nb);
