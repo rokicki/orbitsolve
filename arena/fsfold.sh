@@ -20,6 +20,16 @@ echo "start lengths: $(lens)"
 log "merge fold.py lines"
 cut -d' ' -f3- $O/prod-improved.txt > $R/fold.txt; wc -l < $R/fold.txt
 devtools/certmerge $ST $R/fold.txt --keep ud > $R/merge0.out 2>&1; grep "^improvements" $R/merge0.out
+# carry forward (11-23, user-approved): merge the previous fold's lines, so a class shortened once cannot slip back
+# when certextend (not deterministic) misses it; plus any extra stage dirs listed in $O/carry.dirs (one-shot recovery).
+log "carry forward"
+PREV=$(cat $O/lastfold 2>/dev/null); PD=/var/tmp/orbitsolve/fsfold/$st-$PREV/stages/$SD
+for cd in $PD $(cat $O/carry.dirs 2>/dev/null); do
+  [ -d "$cd" ] || { echo "carry: $cd missing, skipped"; continue; }
+  cat $cd/w*.txt > $R/carry.txt; echo "carry $cd: $(wc -l < $R/carry.txt) lines"
+  devtools/certmerge $ST $R/carry.txt --keep ud > $R/mergeC.out 2>&1; grep "^improvements" $R/mergeC.out
+done
+rm -f $R/carry.txt
 log "pool"
 cat $O/*.out | awk '/^Solving/{next} /^ [^ ]/{print}' > $R/finds.txt; wc -l < $R/finds.txt
 devtools/pairlogcheck --keep ud --emit 7 10 < $R/finds.txt > $R/pool.cls 2> $R/check.err; grep -v "^  " $R/check.err | tail -2
