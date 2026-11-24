@@ -15,6 +15,9 @@ case $st in
   *) echo "unknown stage $st"; exit 1 ;;
 esac
 R=/var/tmp/orbitsolve/fsfold/$st-$2; TW=$D/tws/$T.tws
+# incremental (11-24, user): the previous fold's saved table is the base, so a class can never slip back
+PREV=$(cat /var/tmp/orbitsolve/optfs/$st/lastfold 2>/dev/null); PT=/var/tmp/orbitsolve/fsfold/$st-$PREV/$st-$PREV.tab
+[ -n "$PREV" ] && [ -s "$PT" ] && BASE=$PT; echo "base $BASE"
 mkdir -p $R
 cut -d' ' -f3- /var/tmp/orbitsolve/optfs/$st/prod-improved.txt > $R/full.txt
 grep -q "[xyz]" $R/full.txt && { echo "rotation in lines; stop"; exit 1; }

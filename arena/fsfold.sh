@@ -15,16 +15,18 @@ BASE="--base $D/pair3.cls --base $D/p8s10.cls --base $D/p9.cls --base $D/eg8.cls
 log() { echo "== $* ($(date '+%m-%d %H:%M'))"; }
 lens() { for f in $ST/w*.txt; do awk '{print NF}' $f; done | sort -n | uniq -c | awk '$2>=14{printf "%s:%s ", $2, $1}'; echo; }
 echo "# fsfold.sh $*"
-mkdir -p $R/stages; rm -rf $ST; cp -a /var/tmp/orbitsolve/optfs/full/stages/$SD $ST; chmod -R u+w $ST
+# incremental (11-24, user): start from the previous fold's stage (lines only ever get shorter: certmerge keeps the
+# shorter line), so a class can never slip back; the expanded P 80 stage only when there is no previous fold.
+PREV=$(cat $O/lastfold 2>/dev/null); PD=/var/tmp/orbitsolve/fsfold/$st-$PREV/stages/$SD
+SRC=$PD; [ -n "$PREV" ] && [ -d "$PD" ] || SRC=/var/tmp/orbitsolve/optfs/full/stages/$SD
+mkdir -p $R/stages; rm -rf $ST; cp -a $SRC $ST; chmod -R u+w $ST; echo "start from $SRC"
 echo "start lengths: $(lens)"
 log "merge fold.py lines"
 cut -d' ' -f3- $O/prod-improved.txt > $R/fold.txt; wc -l < $R/fold.txt
 devtools/certmerge $ST $R/fold.txt --keep ud > $R/merge0.out 2>&1; grep "^improvements" $R/merge0.out
-# carry forward (11-23, user-approved): merge the previous fold's lines, so a class shortened once cannot slip back
-# when certextend (not deterministic) misses it; plus any extra stage dirs listed in $O/carry.dirs (one-shot recovery).
-log "carry forward"
-PREV=$(cat $O/lastfold 2>/dev/null); PD=/var/tmp/orbitsolve/fsfold/$st-$PREV/stages/$SD
-for cd in $PD $(cat $O/carry.dirs 2>/dev/null); do
+# extra stage dirs listed in $O/carry.dirs (one-shot recovery) are merged too.
+log "carry dirs"
+for cd in $(cat $O/carry.dirs 2>/dev/null); do
   [ -d "$cd" ] || { echo "carry: $cd missing, skipped"; continue; }
   cat $cd/w*.txt > $R/carry.txt; echo "carry $cd: $(wc -l < $R/carry.txt) lines"
   devtools/certmerge $ST $R/carry.txt --keep ud > $R/mergeC.out 2>&1; grep "^improvements" $R/mergeC.out
