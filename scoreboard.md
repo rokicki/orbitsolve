@@ -1,6 +1,6 @@
 # Scoreboard: oblique chiral pair P (boundary passes)
 
-P = (1ud + 2ud) + (3ax + 4op).  Plain sum 17 + 18 + 23 + 22 = 80 (certified).  A boundary pass bounds a
+P = (1ud + 2ud) + (3ax + 4op).  Plain sum 16 + 18 + 23 + 22 = 79 (certified 11-24; was 80).  A boundary pass bounds a
 pair of consecutive stages together.  "Covered" = the search tool found blocks for every class; "checked"
 = an independent checker passed on those blocks.  All boundary results are dry runs (no boundary
 certificates until home).  Details: journal.md; methods: methods.md ("Boundary passes").
@@ -9,7 +9,7 @@ certificates until home).  Details: journal.md; methods: methods.md ("Boundary p
 
 | P | UD (1ud + 2ud) | AX (3ax + 4op) | status |
 |---|---|---|---|
-| 80 | 35 (plain) | 45 (plain) | certified |
+| 79 | 34 (plain) | 45 (plain) | certified 11-24 (obl23pair-axis-2026-11-24; 80 before) |
 | 77 | 35 | 42 | checked (axbcheck PASS, 11-01) |
 | 76 | 34 | 42 | checked (UD 34: boundcheck PASS 11-04, gpubound PASS) |
 | 75 | 34 | 41 | checked (AX 41: gpuaxbcheck PASS 11-04 11:15, snap-41 stages) |

@@ -1,0 +1,20 @@
+# /Users/rokicki/orbitsolve/devtools/certcheck stages/aUbU..aDbD --keep ud
+stage aUbU..aDbD: 2 solved groups kept, 2 target groups; 9 segment files
+lines: 2936935, 0 bad, 0 in the wrong segment; longest 18; lengths: 0:1 5:16 6:44 7:212 8:326 9:1280 10:11168 11:22916 12:48784 13:140649 14:276668 15:476862 16:888874 17:984940 18:84195 (1s)
+classes: 2936935 distinct positions, 0 lines repeat a class already listed; 8 cube symmetries keep the stage
+  w00: 1 lines, longest 0, 1 stage states, 0 not covered
+  w01: 16 lines, longest 5, 128 stage states, 0 not covered
+  w02: 728 lines, longest 9, 5536 stage states, 0 not covered
+  w03: 12080 lines, longest 12, 96640 stage states, 0 not covered
+  w04: 101496 lines, longest 15, 808760 stage states, 0 not covered
+  w05: 432320 lines, longest 17, 3458560 stage states, 0 not covered
+  w06: 956032 lines, longest 18, 7638400 stage states, 0 not covered
+  w07: 1019200 lines, longest 18, 8153600 stage states, 0 not covered
+  w08: 415062 lines, longest 18, 3312400 stage states, 0 not covered
+coverage checked (10s)
+side effects on 6x6x6: 0 move another centre off its colour, 0 keep colours but move other centre pieces (not pure), 2936935 pure; 2931727 change diagonal colours
+side effects on 7x7x7: 0 move another centre off its colour, 2935422 keep colours but move other centre pieces (not pure), 1513 pure; 2931727 change diagonal colours
+side effects on 8x8x8: 0 move another centre off its colour, 2935422 keep colours but move other centre pieces (not pure), 1513 pure; 2931727 change diagonal colours
+side effects on 9x9x9: 0 move another centre off its colour, 2935422 keep colours but move other centre pieces (not pure), 1513 pure; 2931727 change diagonal colours
+side effects on 10x10x10: 0 move another centre off its colour, 2935422 keep colours but move other centre pieces (not pure), 1513 pure; 2931727 change diagonal colours
+PASS: every stage state in these segments is solved in at most 18 moves (12s)

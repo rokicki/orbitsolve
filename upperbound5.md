@@ -12,7 +12,7 @@ scrambled.  Same-coloured centre pieces are interchangeable.
 
 | constant | value | status |
 |---|---|---|
-| P, oblique chiral pair | **80** = 1ud 17 + 2ud 18 + 3ax 23 + 4op 22 (plain sum) | certified: ~/orbitsolve-certsafe/obl23pair-axis-P80-2026-11-01 (copy on armory ~/certsafe); **79** = 1ud 16 + 18 + 23 + 22 on the working tables (checked, not yet a certificate) |
+| P, oblique chiral pair | **79** = 1ud 16 + 2ud 18 + 3ax 23 + 4op 22 (plain sum) | certified 2026-11-24: ~/orbitsolve-certsafe/obl23pair-axis-2026-11-24 (and -small; copies on armory ~/certsafe); was 80 |
 | P with boundary passes | **69** = UD 31 + AX 38 | checked (dry run): UD 31 gpubound PASS (2.21e14 colourings, 0 not solved, 11-13 01:01), AX 38 gpuaxbcheck PASS (1.47e14 positions, 0 not solved, 11-08 23:52); evidence ~/orbitsolve-certsafe/obl23pair-P69-evidence-2026-11-13 (UD 31) and -P71-evidence-2026-11-08 (AX 38); boundary certificates at home |
 | D, diagonal | 44 = 10 + 16 + 18 | certified (cert/diag/centres-first) |
 | M, mid (odd n) | 39 = 18 + 21 | certified (cert/mid/centres-first) |
@@ -26,8 +26,8 @@ k wing orbits.
 
 | P | status | whole cube, even n | whole cube, odd n | centres only, even n | centres only, odd n | n = 6, 7, 8 (whole) |
 |---|---|---|---|---|---|---|
-| **80** | certified | (80 n^2 + 344 n - 920) / 8 | (80 n^2 + 340 n - 1580) / 8 | (80 n^2 - 304 n + 288) / 8 | (80 n^2 - 308 n + 204) / 8 | 503, 590, 869 |
-| 79 | checked, working tables (1ud 16) | (79 n^2 + 350 n - 928) / 8 | (79 n^2 + 348 n - 1595) / 8 | (79 n^2 - 298 n + 280) / 8 | (79 n^2 - 300 n + 189) / 8 | 502, 589, 866 |
+| 80 | certified (previous) | (80 n^2 + 344 n - 920) / 8 | (80 n^2 + 340 n - 1580) / 8 | (80 n^2 - 304 n + 288) / 8 | (80 n^2 - 308 n + 204) / 8 | 503, 590, 869 |
+| **79** | **certified** | (79 n^2 + 350 n - 928) / 8 | (79 n^2 + 348 n - 1595) / 8 | (79 n^2 - 298 n + 280) / 8 | (79 n^2 - 300 n + 189) / 8 | 502, 589, 866 |
 | 77 | checked (UD 35 + AX 42) | (77 n^2 + 362 n - 944) / 8 | (77 n^2 + 364 n - 1625) / 8 | (77 n^2 - 286 n + 264) / 8 | (77 n^2 - 284 n + 159) / 8 | 500, 587, 860 |
 | 76 | checked (34 + 42) | (76 n^2 + 368 n - 952) / 8 | (76 n^2 + 372 n - 1640) / 8 | (76 n^2 - 280 n + 256) / 8 | (76 n^2 - 276 n + 144) / 8 | 499, 586, 857 |
 | 75 | checked (34 + 41) | (75 n^2 + 374 n - 960) / 8 | (75 n^2 + 380 n - 1655) / 8 | (75 n^2 - 274 n + 248) / 8 | (75 n^2 - 268 n + 129) / 8 | 498, 585, 854 |
@@ -48,15 +48,15 @@ Our metric is the single-slice turn metric (SSTM: any one layer, quarter or half
 turn metric) counts a turn of an outer block of k layers as 1, so k SSTM moves can be 1 OBTM move. An OBTM bound B for
 the 5x5x5 (blocks of at most 2 layers) gives SSTM <= 2B.
 
-| n | best published upper bound | in SSTM | ours, P 80 (certified) | ours, P 69 (GPU boundary pass) |
+| n | best published upper bound | in SSTM | ours, P 79 (certified) | ours, P 69 (GPU boundary pass) |
 |---|---|---|---|---|
 | 4 | 53 SSTM, 55 OBTM, 53 BTM (Shuang Chen, March 2015) [1][2] | 53 | 217 | 217 |
 | 5 | 130 OBTM (xyzzy, Speedsolving forum, 2018-05-20; community computation, not independently checked) [3] | <= 260 (from 130 OBTM) | 265 | 265 |
-| 6 | none found (lower bound 72 SSTM [4]) | - | 503 | 492 |
-| 7 | none found (lower bound 95 SSTM [4]) | - | 590 | 579 |
-| 8 | none found | - | 869 | 836 |
-| 9 | none found | - | 995 | 962 |
-| 10 | none found | - | 1315 | 1249 |
+| 6 | none found (lower bound 72 SSTM [4]) | - | 502 | 492 |
+| 7 | none found (lower bound 95 SSTM [4]) | - | 589 | 579 |
+| 8 | none found | - | 866 | 836 |
+| 9 | none found | - | 992 | 962 |
+| 10 | none found | - | 1309 | 1249 |
 | N | Theta(N^2 / log N) (Demaine et al. 2011; constants not given) [5] | - | ~P N^2 / 8 | ~8.6 N^2 |
 
 - For 4x4x4 and 5x5x5 the published reduction methods (phase searches over whole-cube subgroups) are far better
@@ -66,11 +66,11 @@ the 5x5x5 (blocks of at most 2 layers) gives SSTM <= 2B.
   OBTM confirmed, 56 SSTM, 53 BTM (2015); Chen 55 OBTM, 53 SSTM (2015). A forum post claims 54 OBTM; not
   confirmed elsewhere.
 - A 2026 social-media post (Math Cafe) quotes 92n^2 - 307n + 113 (odd n) and 92n^2 - 339n + 103 (even n) as upper
-  bounds, without a source or proof; we could not trace it. Ours grows as about P n^2 / 8 (10 n^2 at P 80, about 8.6 n^2 at 69).
+  bounds, without a source or proof; we could not trace it. Ours grows as about P n^2 / 8 (about 9.9 n^2 at P 79, 8.6 n^2 at 69).
 
 - Centres only, explicit O(n^2): our nxnxn paper (~/arXiv_nxnxn_paper/main.tex, line ~935) bounds one centre orbit by
   12 three-cycles of 12 moves = 144, so all centres take at most 144 (n/2 - 1)^2 = 36 n^2 - 144 n + 144 moves.
-  Our centres-only polynomial is (80 n^2 - 304 n + 288) / 8 = 10 n^2 - 38 n + 36 at P 80 (about 8.6 n^2 at P 69),
+  Our centres-only polynomial is (79 n^2 - 298 n + 280) / 8 at P 79 (about 8.6 n^2 at P 69),
   about 3.6 times smaller in the leading term. The paper's own asymptotic algorithms reach
   30.5 n^2 / lg n + o(n^2 / lg n) moves for the whole cube, which wins only for very large n.
 - Reddit: r/Cubers, "I found a general formula for an upper bound of ..." (2018),
@@ -106,7 +106,7 @@ and corners may be scrambled until their own stages.  With k = (n-2)/2 (even) or
 
 | component | how many | stages (worst line per stage) | per orbit | boundary merges | status |
 |---|---|---|---|---|---|
-| oblique chiral pair, P | k(k-1)/2 | 1ud 17, 16 working (both orbits' U pieces; other obliques keep U and D), 2ud 18 (D pieces), 3ax 23 (F/B vs L/R pieces onto their axis), 4op 22 (F vs B, L vs R) | **80** plain (79 working) | 1ud + 2ud: 35 -> 31 (checked); 3ax + 4op: 45 -> 38 (checked) | 80 certified |
+| oblique chiral pair, P | k(k-1)/2 | 1ud 16 (both orbits' U pieces; other obliques keep U and D), 2ud 18 (D pieces), 3ax 23 (F/B vs L/R pieces onto their axis), 4op 22 (F vs B, L vs R) | **79** plain | 1ud + 2ud: 35 -> 31 (checked); 3ax + 4op: 45 -> 38 (checked) | 79 certified |
 | mid (T-centre) orbit, M (odd n) | k | UD 18 (U and D pieces), LFRB 21 (the side ring) | **39** | none | certified |
 | diagonal (X-centre) orbit, D | k | D 10, U 16 (D kept), LFRB 18 (U, D kept) | **44** | none | certified |
 | corners (even n) | 1 | one stage, face turns only | **11** | none | exact (full BFS) |
@@ -118,18 +118,19 @@ Even n: P k(k-1)/2 + (D + W) k + 11 with k = (n-2)/2, which is the polynomial ab
 
 ## Status (2026-11-24)
 
-- **Plain sum 79 on the working tables** (11-19): arena tail searches cleared every 1ud 17 (1ud worst 16); 2ud 18s 287,575 -> 84,195, 3ax 23s 549 -> 484 (17-move tails > 2 h each: stuck).  certcheck/axcheck PASS on armory and on the laptop (copies in /var/tmp/orbitsolve/armory-2026-11-24); not yet a certificate.
+- **P <= 79 certified** (11-24, obl23pair-axis-2026-11-24: certcheck/axcheck and the independent udindcheck/axindcheck PASS on all four stages; small form 197 MB, expansion PASS; certruns/cert-2026-11-24): arena tail searches cleared every 1ud 17 (11-19, 1ud worst 16); 2ud 18s 287,575 -> 84,195, 3ax 23s 549 -> 484 (17-move tails > 2 h each: stuck).  certcheck/axcheck PASS on armory and on the laptop (copies in /var/tmp/orbitsolve/armory-2026-11-24); not yet a certificate.
 - **P <= 69 checked** (dry run, 11-13 01:01): UD 31 + AX 38.  UD 31: gpuboundx covered all 7,958,829 1ud classes with a line over 13 in passes a (--stage-acts 4: 129,906 left), b (--stage-acts 5: 16,842), h (L4 + pools pair3/p8s10/p9/c12x/eg8, --prop 10: 3,796), i (L5 + pools: 2,820), j (+ --deep 2: 50), k (+ --slack 7 --deep 3: 0); gpubound --keep ud PASS: 220,726,760,863,456 colourings tried, 0 not solved; 63,649,344 1ud states with dA > 13, 0 without a block; CPU = GPU on 1,592 blocks (11.2 h, with --reorder: lines tried most-used first).  Evidence ~/orbitsolve-certsafe/obl23pair-P69-evidence-2026-11-13 (blocks 24.5 GB .zst, logs, scripts, sources).
 - P <= 70 checked (dry run, 11-10 20:05): UD 32 (4,087,739 blocks, nearly all from stage moves only; gpubound PASS, 6.39e13 colourings, 0 not solved) + AX 38.  Evidence ~/orbitsolve-certsafe/obl23pair-P70-evidence-2026-11-10.
 - P <= 71 checked (dry run): UD 33 + AX 38 (gpuaxbx covered all 7,263,089 classes in passes broad..f; gpuaxbcheck PASS 11-08 23:52: 147,437,136,202,996 positions tried, 0 not solved; 116,080,766 3ax states with d3 > 16, 0 without a block; CPU = GPU on 1,453 blocks; 10.6 h).  Same four stages as P 72.  Evidence ~/orbitsolve-certsafe/obl23pair-P71-evidence-2026-11-08 (logs, scripts, sources); the blocks (bnd/g38m.txt.zst, 7.9 GB) were deleted by a script glob bug and restored from an APFS snapshot, not yet copied into the evidence dir.
 - P <= 72 checked (dry run): UD 33 (gpuboundx covered 981,333 classes; gpubound PASS, 5.24e12 colourings, 0 not solved) + AX 39 (gpuaxbx covered all 5,071,318 classes; gpuaxbcheck PASS, 4.17e13 positions, 0 not solved, 11-04 23:18).  All four stages = the obl23pair-axis-2026-11-04 certificate.  Evidence ~/orbitsolve-certsafe/obl23pair-P72-evidence-2026-11-05.  Boundary certificates at home (AX 39 blocks 10.3 GiB plain, UD 33 1.31 GiB).
-- Tops of the certified stages: 1ud 5,294 at 17, 2ud 287,575 at 18, 3ax 549 at 23, 4op 14,965 at 22.  Later folds not yet in a certificate: arena fastsolve folds 2026-11-24 (1ud 740,855 at 16, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22; see Working tables); earlier 1ud r1ud-si4, 2ud r2ud-si5 (217,884 at 18).
+- Tops of the certified stages: 1ud 740,855 at 16, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22.  Later folds not yet in a certificate: arena fastsolve folds 2026-11-24 (1ud 740,855 at 16, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22; see Working tables); earlier 1ud r1ud-si4, 2ud r2ud-si5 (217,884 at 18).
 - Whole-cube solver from the certificates: certsolve (repo staged in ~/orbitsolve/repo; timing at the bottom of this file).
 - **Table size for a solver:** about 28 MB (2.25M stored lines; the rest are one stage move from a shorter class).
 
-## Current tables (classes by length; P <= 80 plain)
+## Current tables (classes by length; P <= 79 plain, certified)
 
-P = 1ud + 2ud + 3ax + 4op, each stage from the previous one's goal, classes up to the stage symmetries.  1ud and 2ud: /var/tmp/orbitsolve/bcert/ud34/snap (r1ud-si4, r2ud-si2 + pulls; certcheck PASS, 2026-11-04 08:17); 3ax: /var/tmp/orbitsolve/opt3ax/merge/ax-m3.tab (merge m3: hq23 -si + tails), 4op: /var/tmp/orbitsolve/op/4op-m1.tab (4op merge m1: all-moves -si, 2026-11-03).
+P = 1ud + 2ud + 3ax + 4op, each stage from the previous one's goal, classes up to the stage symmetries.  The certificate
+obl23pair-axis-2026-11-24 = arena folds 1ud f105, 2ud f111, 3ax f15, 4op f8 (previous: obl23pair-axis-2026-11-04, P 80).
 
 | length | 1ud | 2ud | 3ax | 4op |
 |---|---|---|---|---|
@@ -140,29 +141,29 @@ P = 1ud + 2ud + 3ax + 4op, each stage from the previous one's goal, classes up t
 | 6 | 1,231 | 44 | 58 | 8 |
 | 7 | 5,619 | 212 | 101 | 37 |
 | 8 | 23,338 | 326 | 506 | 125 |
-| 9 | 99,080 | 1,280 | 2,022 | 268 |
-| 10 | 381,391 | 11,168 | 8,088 | 636 |
-| 11 | 1,101,171 | 22,916 | 24,726 | 1,611 |
-| 12 | 1,813,481 | 48,777 | 77,071 | 4,469 |
-| 13 | 2,735,410 | 140,043 | 225,254 | 12,142 |
-| 14 | 3,871,090 | 267,978 | 444,068 | 30,650 |
-| 15 | 3,106,406 | 427,438 | 829,220 | 54,619 |
-| 16 | 976,039 | 673,843 | 1,492,054 | 86,332 |
-| 17 | 5,294 | 1,055,318 | 2,191,771 | 165,453 |
-| 18 |  | 287,575 | 2,363,691 | 305,543 |
-| 19 |  |  | 1,633,820 | 406,304 |
-| 20 |  |  | 828,636 | 311,675 |
-| 21 |  |  | 208,902 | 113,539 |
-| 22 |  |  | 35,720 | 14,965 |
-| 23 |  |  | 549 |  |
+| 9 | 99,131 | 1,280 | 2,022 | 268 |
+| 10 | 382,173 | 11,168 | 8,088 | 636 |
+| 11 | 1,100,792 | 22,916 | 24,726 | 1,611 |
+| 12 | 1,836,796 | 48,784 | 77,071 | 4,469 |
+| 13 | 2,800,100 | 140,649 | 225,254 | 12,143 |
+| 14 | 4,089,294 | 276,668 | 444,068 | 30,653 |
+| 15 | 3,040,221 | 476,862 | 829,221 | 54,620 |
+| 16 | 740,855 | 888,874 | 1,492,065 | 86,327 |
+| 17 |  | 984,940 | 2,191,791 | 165,467 |
+| 18 |  | 84,195 | 2,363,659 | 305,609 |
+| 19 |  |  | 1,633,820 | 406,381 |
+| 20 |  |  | 828,640 | 311,944 |
+| 21 |  |  | 208,921 | 113,543 |
+| 22 |  |  | 35,762 | 14,535 |
+| 23 |  |  | 484 |  |
 | **classes** | **14,119,851** | **2,936,935** | **10,366,284** | **1,508,387** |
-| **longest** | **17** | **18** | **23** | **22** |
+| **longest** | **16** | **18** | **23** | **22** |
 
 ## Working tables (2026-11-24 08:48; arena fastsolve tail folds, not yet in a certificate)
 
-Arena fastsolve (300/1400 GB tables) shortens the tails of the longest lines; each fold merges them (vline-checked),
+Arena fastsolve (300/700/1400 GB tables) shortens the tails of the longest lines; each fold merges them (vline-checked),
 propagates with certextend and checks (certcheck --keep ud / axcheck PASS).  Cells show certified -> now where they
-differ.  Plain sum **79** (certified 80).  Stages: armory /var/tmp/orbitsolve/fsfold/1ud-f105, 2ud-f111, 3ax-f15, 4op-f8.
+differ.  Plain sum **79** (certified 79).  Stages: armory /var/tmp/orbitsolve/fsfold/1ud-f105, 2ud-f111, 3ax-f15, 4op-f8.
 
 | length | 1ud (f105) | 2ud (f111) | 3ax (f15) | 4op (f8) |
 |---|---|---|---|---|
@@ -173,23 +174,23 @@ differ.  Plain sum **79** (certified 80).  Stages: armory /var/tmp/orbitsolve/fs
 | 6 | 1,231 | 44 | 58 | 8 |
 | 7 | 5,619 | 212 | 101 | 37 |
 | 8 | 23,338 | 326 | 506 | 125 |
-| 9 | 99,080 -> **99,131** | 1,280 | 2,022 | 268 |
-| 10 | 381,391 -> **382,173** | 11,168 | 8,088 | 636 |
-| 11 | 1,101,171 -> **1,100,792** | 22,916 | 24,726 | 1,611 |
-| 12 | 1,813,481 -> **1,836,796** | 48,777 -> **48,784** | 77,071 | 4,469 |
-| 13 | 2,735,410 -> **2,800,100** | 140,043 -> **140,649** | 225,254 | 12,142 -> **12,143** |
-| 14 | 3,871,090 -> **4,089,294** | 267,978 -> **276,668** | 444,068 | 30,650 -> **30,653** |
-| 15 | 3,106,406 -> **3,040,221** | 427,438 -> **476,862** | 829,220 -> **829,221** | 54,619 -> **54,620** |
-| 16 | 976,039 -> **740,855** | 673,843 -> **888,874** | 1,492,054 -> **1,492,065** | 86,332 -> **86,327** |
-| 17 | 5,294 -> **0** | 1,055,318 -> **984,940** | 2,191,771 -> **2,191,791** | 165,453 -> **165,467** |
-| 18 |  | 287,575 -> **84,195** | 2,363,691 -> **2,363,659** | 305,543 -> **305,609** |
-| 19 |  |  | 1,633,820 | 406,304 -> **406,381** |
-| 20 |  |  | 828,636 -> **828,640** | 311,675 -> **311,944** |
-| 21 |  |  | 208,902 -> **208,921** | 113,539 -> **113,543** |
-| 22 |  |  | 35,720 -> **35,762** | 14,965 -> **14,535** |
-| 23 |  |  | 549 -> **484** |  |
+| 9 | 99,131 | 1,280 | 2,022 | 268 |
+| 10 | 382,173 | 11,168 | 8,088 | 636 |
+| 11 | 1,100,792 | 22,916 | 24,726 | 1,611 |
+| 12 | 1,836,796 | 48,784 | 77,071 | 4,469 |
+| 13 | 2,800,100 | 140,649 | 225,254 | 12,143 |
+| 14 | 4,089,294 | 276,668 | 444,068 | 30,653 |
+| 15 | 3,040,221 | 476,862 | 829,221 | 54,620 |
+| 16 | 740,855 | 888,874 | 1,492,065 | 86,327 |
+| 17 |  | 984,940 | 2,191,791 | 165,467 |
+| 18 |  | 84,195 | 2,363,659 | 305,609 |
+| 19 |  |  | 1,633,820 | 406,381 |
+| 20 |  |  | 828,640 | 311,944 |
+| 21 |  |  | 208,921 | 113,543 |
+| 22 |  |  | 35,762 | 14,535 |
+| 23 |  |  | 484 |  |
 | **classes** | **14,119,851** | **2,936,935** | **10,366,284** | **1,508,387** |
-| **longest** | 17 -> **16** | **18** | **23** | **22** |
+| **longest** | **16** | **18** | **23** | **22** |
 
 ## Certificates
 
@@ -197,7 +198,8 @@ Each directory holds MANIFEST and stages/ (plus boundaries/ where approved); che
 
 | result | where |
 |---|---|
-| **P 80, all four stages lowered 2026-11-04** (tops: 1ud 5,294 at 17, 2ud 287,575 at 18, 3ax 549 at 23, 4op 14,965 at 22) | ~/orbitsolve-certsafe/obl23pair-axis-2026-11-04 (certcheck --keep ud and axcheck PASS; independent .tws checks udindcheck.py / axindcheck.py PASS on all four stages; read-only; checks and SHA256SUMS in certruns/cert-2026-11-04) |
+| **P 79** (1ud 16 + 2ud 18 + 3ax 23 + 4op 22; arena folds) | ~/orbitsolve-certsafe/obl23pair-axis-2026-11-24 and -small (all checks PASS, independent ones too; logs and SHA256SUMS in certruns/cert-2026-11-24) |
+| P 80, all four stages lowered 2026-11-04 (tops: 1ud 5,294 at 17, 2ud 287,575 at 18, 3ax 549 at 23, 4op 14,965 at 22) | ~/orbitsolve-certsafe/obl23pair-axis-2026-11-04 (certcheck --keep ud and axcheck PASS; independent .tws checks udindcheck.py / axindcheck.py PASS on all four stages; read-only; checks and SHA256SUMS in certruns/cert-2026-11-04) |
 | **P 80** (1ud 17 + 2ud 18 + 3ax 23 + 4op 22) | ~/orbitsolve-certsafe/obl23pair-axis-P80-2026-11-01 |
 | **P 69 evidence** (UD 31 blocks, search/merge/check logs, scripts, sources; AX 38 as P 71) | ~/orbitsolve-certsafe/obl23pair-P69-evidence-2026-11-13 |
 | P 70 evidence (UD 32 blocks, logs, scripts, sources) | ~/orbitsolve-certsafe/obl23pair-P70-evidence-2026-11-10 |
