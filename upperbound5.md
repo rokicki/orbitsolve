@@ -117,6 +117,31 @@ and corners may be scrambled until their own stages.  With k = (n-2)/2 (even) or
 Even n: P k(k-1)/2 + (D + W) k + 11 with k = (n-2)/2, which is the polynomial above; odd n: P k(k-1)/2 +
 (D + M + W) k + 20 with k = (n-3)/2.  Centres only: P k(k-1)/2 + D k (+ M k on odd n).
 
+## Progress (plain sum, working tables)
+
+Classes at each stage's longest length, last fold of each day (armory arena folds; journal.md has every fold).  The
+plain sum is the sum of the four stage worsts.
+
+| when | 1ud | 2ud at 18 | 3ax at 23 | 4op at 22 | plain sum | what happened |
+|---|---|---|---|---|---|---|
+| 11-04 certificate | 5,294 at 17 | 287,575 | 549 | 14,965 | **80** | certified P 80 (all four stages lowered) |
+| 11-13 22:51 | 2,320 at 17 | 123,863 | 546 | 14,535 | 80 | arena fastsolve folds since 11-11 (expanded base: 5,272 / 286,263) |
+| 11-14 22:51 | 1,735 at 17 | 109,517 | 546 | 14,535 | 80 | 1ud 15-tails of 17s, 2ud 15-tails of 18s |
+| 11-15 22:51 | 1,168 at 17 | 101,977 | 546 | 14,535 | 80 | |
+| 11-16 22:51 | 790 at 17 | 98,371 | 546 | 14,535 | 80 | 1ud tail list done (2,950 of 6,687 shortened); now whole 17-move lines (20 of 20 shortened in a test) |
+| 11-17 22:51 | 406 at 17 | 95,884 | 546 | 14,535 | 80 | 1ud: all 861 remaining 17s queued; 2ud 16-tails |
+| 11-18 22:51 | 102 at 17 | 93,093 | 546 | 14,535 | 80 | |
+| 11-19 02:53 | **0 at 17**; 940,683 at 16 | 92,738 | 546 | 14,535 | **79** | every 1ud 17 shortened: 1ud worst 16 |
+| 11-19 22:43 | 856,902 at 16 | 91,210 | 546 | 14,535 | 79 | 1ud 15-tails of the 16s (~20% shorten); sparse cert s1119 independent checks PASS |
+| 11-20 14:43 | 837,476 at 16 | 89,851 | 546 | 14,535 | 79 | 3ax 16-tails on the 300 GB table: 0 of 20 shortened |
+| 11-21 22:36 | 784,044 at 16 | 85,591 | 546 | 14,535 | 79 | |
+| 11-23 08:46 | 740,855 at 16 | 84,195 | 546 | 14,535 | 79 | arena /dev/shm loss 11-22 (fixed: linger); fold carry-forward |
+| 11-23 22:53 | 740,855 at 16 | 84,195 | 491 | 14,535 | 79 | whole arena on 3ax: 1400 GB table, 16-tails (28 of 448 shortened) |
+| 11-24 08:48 | 740,855 at 16 | 84,195 | **484** | 14,535 | **79** | 3ax 17-tails (s17a): 0 of 417 done after 4 h; waiting on the user |
+
+Remaining to the next level: 1ud 16 -> 15 needs 740,855 classes (78 then), 2ud 18 -> 17 needs 84,195, 3ax 23 -> 22
+needs 484, 4op 22 -> 21 needs 14,535.
+
 ## Status (2026-11-24)
 
 - **Plain sum 79 checked on the working tables** (armory, 11-13..11-24; not yet a released certificate): arena fastsolve tail searches (300 GB tables, D=9) shortened the tails of the longest 1ud lines until **1ud has no 17s left** (fold f86, 11-19 02:53: all 861 whole 17-move lines of 1ud prod6 shortened); the worst 1ud line is 16, so 16 + 18 + 23 + 22 = 79.  Latest folds 1ud f105 (16s 740,855), 2ud f111 (18s 286,263 -> 84,195), 3ax f15 (23s 549 -> 484), 4op f8 (22s 14,535); certcheck/axcheck PASS on armory and re-run on the laptop on copies (/var/tmp/orbitsolve/armory-2026-11-24, 11-24).  Sparse working certificate s1119 (snapshot 1ud f89 + 2ud f91 + 3ax f6 + 4op f8, 202 MB small form) passed the independent .tws checks too (11-19 12:58).
