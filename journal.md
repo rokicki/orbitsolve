@@ -3550,3 +3550,4 @@ node 1 with 2ud).  So 4op's "stall" was the original representatives' tails; the
 - 11-23 12:53 [armory] 3ax big1 (1400 GB, D=9): 41/448 tails searched, 3 shortened (23->22; about 3 min wall per tail vs 18.5 min on the 300 GB table, ~40 h left). Refold: 3ax f7 PASS, worst 23 with 543 classes at 23 (was 546); 1ud f105, 2ud f111, 4op f8 no change.
 - 11-23 14:53 [armory] 3ax big1: 84/448 searched, 6 shortened (~26 h left). Refold: 3ax f8 PASS, worst 23 with 540 at 23 (was 543); 1ud f105, 2ud f111, 4op f8 no change.
 - 11-23 16:53 [armory] 3ax big1: 127/448 searched, 9 shortened (~20 h left). Refold: 3ax f9 PASS, worst 23 with 537 at 23 (was 540); 1ud f105, 2ud f111, 4op f8 no change.
+- 11-23 18:53 [armory] 3ax big1: 173/448 searched, 13 shortened (~16 h left). Refold: 3ax f10 PASS, worst 23 with 527 at 23 (was 537; 4 new lines, the fold's extend step lowered more); 1ud f105, 2ud f111, 4op f8 no change.
