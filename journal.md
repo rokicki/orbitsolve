@@ -3552,3 +3552,4 @@ node 1 with 2ud).  So 4op's "stall" was the original representatives' tails; the
 - 11-23 16:53 [armory] 3ax big1: 127/448 searched, 9 shortened (~20 h left). Refold: 3ax f9 PASS, worst 23 with 537 at 23 (was 540); 1ud f105, 2ud f111, 4op f8 no change.
 - 11-23 18:53 [armory] 3ax big1: 173/448 searched, 13 shortened (~16 h left). Refold: 3ax f10 PASS, worst 23 with 527 at 23 (was 537; 4 new lines lowered 10 classes); 1ud f105, 2ud f111, 4op f8 no change.
 - 11-23 20:53 [armory] 3ax big1: 226/448 searched, 16 shortened (~12 h left). Refold: 3ax f11 PASS, worst 23 with 526 at 23 (was 527; 3 new lines lowered 1 class); 1ud f105, 2ud f111, 4op f8 no change.
+- 11-23 22:27 [armory] user approved 3ax next list: 17-move tails of the lines at 23 (mktails.py 3ax 23 17, run s17a, ~510 tails) on the 1400 GB table, chained to start when big1 ends (aclose, mktails from the latest fold, alaunch-big.sh); log optfs/3ax/chain17.log.
