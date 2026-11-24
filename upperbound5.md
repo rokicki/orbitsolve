@@ -13,6 +13,7 @@ scrambled.  Same-coloured centre pieces are interchangeable.
 | constant | value | status |
 |---|---|---|
 | P, oblique chiral pair | **80** = 1ud 17 + 2ud 18 + 3ax 23 + 4op 22 (plain sum) | certified: ~/orbitsolve-certsafe/obl23pair-axis-P80-2026-11-01 (copy on armory ~/certsafe) |
+| P, plain sum on the working tables | **79** = 1ud **16** + 2ud 18 + 3ax 23 + 4op 22 | checked, not yet a released certificate: arena folds 1ud f105 / 2ud f111 / 3ax f15 / 4op f8 (certcheck --keep ud and axcheck PASS on armory and again on the laptop, 2026-11-24); sparse working certificate s1119 (1ud f89) also passed the independent udindcheck/axindcheck (11-19) |
 | P with boundary passes | **69** = UD 31 + AX 38 | checked (dry run): UD 31 gpubound PASS (2.21e14 colourings, 0 not solved, 11-13 01:01), AX 38 gpuaxbcheck PASS (1.47e14 positions, 0 not solved, 11-08 23:52); evidence ~/orbitsolve-certsafe/obl23pair-P69-evidence-2026-11-13 (UD 31) and -P71-evidence-2026-11-08 (AX 38); boundary certificates at home |
 | D, diagonal | 44 = 10 + 16 + 18 | certified (cert/diag/centres-first) |
 | M, mid (odd n) | 39 = 18 + 21 | certified (cert/mid/centres-first) |
@@ -27,6 +28,7 @@ k wing orbits.
 | P | status | whole cube, even n | whole cube, odd n | centres only, even n | centres only, odd n | n = 6, 7, 8 (whole) |
 |---|---|---|---|---|---|---|
 | **80** | certified | (80 n^2 + 344 n - 920) / 8 | (80 n^2 + 340 n - 1580) / 8 | (80 n^2 - 304 n + 288) / 8 | (80 n^2 - 308 n + 204) / 8 | 503, 590, 869 |
+| **79** | checked (plain sum on working tables, 1ud 16) | (79 n^2 + 350 n - 928) / 8 | (79 n^2 + 348 n - 1595) / 8 | (79 n^2 - 298 n + 280) / 8 | (79 n^2 - 300 n + 189) / 8 | 502, 589, 866 |
 | 77 | checked (UD 35 + AX 42) | (77 n^2 + 362 n - 944) / 8 | (77 n^2 + 364 n - 1625) / 8 | (77 n^2 - 286 n + 264) / 8 | (77 n^2 - 284 n + 159) / 8 | 500, 587, 860 |
 | 76 | checked (34 + 42) | (76 n^2 + 368 n - 952) / 8 | (76 n^2 + 372 n - 1640) / 8 | (76 n^2 - 280 n + 256) / 8 | (76 n^2 - 276 n + 144) / 8 | 499, 586, 857 |
 | 75 | checked (34 + 41) | (75 n^2 + 374 n - 960) / 8 | (75 n^2 + 380 n - 1655) / 8 | (75 n^2 - 274 n + 248) / 8 | (75 n^2 - 268 n + 129) / 8 | 498, 585, 854 |
@@ -37,7 +39,7 @@ k wing orbits.
 | 70 | checked (32 + 38), dry run | (70 n^2 + 404 n - 1000) / 8 | (70 n^2 + 420 n - 1730) / 8 | (70 n^2 - 244 n + 208) / 8 | (70 n^2 - 228 n + 54) / 8 | 493, 580, 839 |
 | **69** | **checked (31 + 38)**, dry run; certificate at home | (69 n^2 + 410 n - 1008) / 8 | (69 n^2 + 428 n - 1745) / 8 | (69 n^2 - 238 n + 200) / 8 | (69 n^2 - 220 n + 39) / 8 | 492, 579, 836 |
 
-P = (1ud + 2ud) + (3ax + 4op): 35 + 45 plain = 80; with boundary passes UD 34..31 and AX 42..38 (scoreboard.md), 31 + 38 = 69.
+P = (1ud + 2ud) + (3ax + 4op): 35 + 45 plain = 80 (34 + 45 = 79 on the working tables, 1ud 16); with boundary passes UD 34..31 and AX 42..38 (scoreboard.md), 31 + 38 = 69.
 Whole cube: P (n-2)(n-4)/8 + (n-2)/2 (D + W) + 11 (even), P (n-3)(n-5)/8 + (n-3)/2 (D + M + W) + 20 (odd);
 centres only: drop W and the corner term.
 
@@ -105,7 +107,7 @@ and corners may be scrambled until their own stages.  With k = (n-2)/2 (even) or
 
 | component | how many | stages (worst line per stage) | per orbit | boundary merges | status |
 |---|---|---|---|---|---|
-| oblique chiral pair, P | k(k-1)/2 | 1ud 17 (both orbits' U pieces; other obliques keep U and D), 2ud 18 (D pieces), 3ax 23 (F/B vs L/R pieces onto their axis), 4op 22 (F vs B, L vs R) | **80** plain | 1ud + 2ud: 35 -> 33 (checked); 3ax + 4op: 45 -> 38 (checked) | 80 certified |
+| oblique chiral pair, P | k(k-1)/2 | 1ud 17, 16 on the working tables (both orbits' U pieces; other obliques keep U and D), 2ud 18 (D pieces), 3ax 23 (F/B vs L/R pieces onto their axis), 4op 22 (F vs B, L vs R) | **80** plain (79 working) | 1ud + 2ud: 35 -> 31 (checked); 3ax + 4op: 45 -> 38 (checked) | 80 certified; 79 checked |
 | mid (T-centre) orbit, M (odd n) | k | UD 18 (U and D pieces), LFRB 21 (the side ring) | **39** | none | certified |
 | diagonal (X-centre) orbit, D | k | D 10, U 16 (D kept), LFRB 18 (U, D kept) | **44** | none | certified |
 | corners (even n) | 1 | one stage, face turns only | **11** | none | exact (full BFS) |
@@ -115,13 +117,17 @@ and corners may be scrambled until their own stages.  With k = (n-2)/2 (even) or
 Even n: P k(k-1)/2 + (D + W) k + 11 with k = (n-2)/2, which is the polynomial above; odd n: P k(k-1)/2 +
 (D + M + W) k + 20 with k = (n-3)/2.  Centres only: P k(k-1)/2 + D k (+ M k on odd n).
 
-## Status (2026-11-13)
+## Status (2026-11-24)
 
+- **Plain sum 79 checked on the working tables** (armory, 11-13..11-24; not yet a released certificate): arena fastsolve tail searches (300 GB tables, D=9) shortened the tails of the longest 1ud lines until **1ud has no 17s left** (fold f86, 11-19 02:53: all 861 whole 17-move lines of 1ud prod6 shortened); the worst 1ud line is 16, so 16 + 18 + 23 + 22 = 79.  Latest folds 1ud f105 (16s 740,855), 2ud f111 (18s 286,263 -> 84,195), 3ax f15 (23s 549 -> 484), 4op f8 (22s 14,535); certcheck/axcheck PASS on armory and re-run on the laptop on copies (/var/tmp/orbitsolve/armory-2026-11-24, 11-24).  Sparse working certificate s1119 (snapshot 1ud f89 + 2ud f91 + 3ax f6 + 4op f8, 202 MB small form) passed the independent .tws checks too (11-19 12:58).
+- Next stage levels look expensive: 2ud 18 -> 17 needs 84,195 more classes (2ud 16-tail lists shorten ~20% of tails, ~6 days per 2,000 on one socket); 3ax 23 -> 22 has 484 left but 16-move tails on the 300 GB table gave 0/20, the 1400 GB table (big1, exact to 7, D=9) shortened 28 of 448, and 17-move tails (s17a, started 11-24 04:49) have not finished one in 4 h (> 35 days for 417): armory is waiting on the user's choice.  1ud 16 -> 15 has 740,855 to go (15-tail lists shorten ~20%).
+- Whole-cube solver experiments (certsolvex, devtools/certsolvex.cpp, 11-19): choosing the pair order greedily/stage-major with a beam (width 512) lowers the mean oblique-pair solve from 65.0 to 56.6 moves at N=100 (-13%); whole N=40 solve 12,886 moves (bound 17,605), replay-verified.
+- Arena incident 11-22: /dev/shm tables lost when the last session logged out (logind RemoveIPC); fixed with `loginctl enable-linger rokicki`.  Fold carry-forward (each fold merges the previous fold's lines) added 11-23 after certextend noise let one 1ud class slip back to 17.
 - **P <= 69 checked** (dry run, 11-13 01:01): UD 31 + AX 38.  UD 31: gpuboundx covered all 7,958,829 1ud classes with a line over 13 in passes a (--stage-acts 4: 129,906 left), b (--stage-acts 5: 16,842), h (L4 + pools pair3/p8s10/p9/c12x/eg8, --prop 10: 3,796), i (L5 + pools: 2,820), j (+ --deep 2: 50), k (+ --slack 7 --deep 3: 0); gpubound --keep ud PASS: 220,726,760,863,456 colourings tried, 0 not solved; 63,649,344 1ud states with dA > 13, 0 without a block; CPU = GPU on 1,592 blocks (11.2 h, with --reorder: lines tried most-used first).  Evidence ~/orbitsolve-certsafe/obl23pair-P69-evidence-2026-11-13 (blocks 24.5 GB .zst, logs, scripts, sources).
 - P <= 70 checked (dry run, 11-10 20:05): UD 32 (4,087,739 blocks, nearly all from stage moves only; gpubound PASS, 6.39e13 colourings, 0 not solved) + AX 38.  Evidence ~/orbitsolve-certsafe/obl23pair-P70-evidence-2026-11-10.
 - P <= 71 checked (dry run): UD 33 + AX 38 (gpuaxbx covered all 7,263,089 classes in passes broad..f; gpuaxbcheck PASS 11-08 23:52: 147,437,136,202,996 positions tried, 0 not solved; 116,080,766 3ax states with d3 > 16, 0 without a block; CPU = GPU on 1,453 blocks; 10.6 h).  Same four stages as P 72.  Evidence ~/orbitsolve-certsafe/obl23pair-P71-evidence-2026-11-08 (logs, scripts, sources); the blocks (bnd/g38m.txt.zst, 7.9 GB) were deleted by a script glob bug and restored from an APFS snapshot, not yet copied into the evidence dir.
 - P <= 72 checked (dry run): UD 33 (gpuboundx covered 981,333 classes; gpubound PASS, 5.24e12 colourings, 0 not solved) + AX 39 (gpuaxbx covered all 5,071,318 classes; gpuaxbcheck PASS, 4.17e13 positions, 0 not solved, 11-04 23:18).  All four stages = the obl23pair-axis-2026-11-04 certificate.  Evidence ~/orbitsolve-certsafe/obl23pair-P72-evidence-2026-11-05.  Boundary certificates at home (AX 39 blocks 10.3 GiB plain, UD 33 1.31 GiB).
-- Tops of the certified stages: 1ud 5,294 at 17, 2ud 287,575 at 18, 3ax 549 at 23, 4op 14,965 at 22.  Later folds not yet in a certificate: arena fastsolve folds 2026-11-24 (1ud 740,855 at 17, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22; see Working tables); earlier 1ud r1ud-si4, 2ud r2ud-si5 (217,884 at 18).
+- Tops of the certified stages: 1ud 5,294 at 17, 2ud 287,575 at 18, 3ax 549 at 23, 4op 14,965 at 22.  Later folds not yet in a certificate: arena fastsolve folds 2026-11-24 (1ud 740,855 at 16, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22; see Working tables); earlier 1ud r1ud-si4, 2ud r2ud-si5 (217,884 at 18).
 - Whole-cube solver from the certificates: certsolve (repo staged in ~/orbitsolve/repo; timing at the bottom of this file).
 - **Table size for a solver:** about 28 MB (2.25M stored lines; the rest are one stage move from a shorter class).
 
@@ -163,8 +169,8 @@ Base: the expanded P 80 certificate (certsolve --expand: 1ud 17s 5,272, 2ud 18s 
 lines (vline-checked), turns every shortened tail into an action for certextend (plus --proptop 16 pulls), and checks
 the result (1ud/2ud certcheck --keep ud PASS; 4op opbound replay + axcheck PASS).  Stages: /var/tmp/orbitsolve/fsfold/
 1ud-f105, 2ud-f111, 4op-f8, 3ax-f15.
-Tops: 1ud 17s 5,272 -> **740,855**; 2ud 18s 286,263 -> **84,195**; 4op 22s 14,965 -> **14,535**; 3ax 23s 549 -> **484**.
-Longest per stage unchanged, so P stays 80 plain.
+Tops: 1ud 17s 5,272 -> **0** (longest now **16**: 740,855 at 16); 2ud 18s 286,263 -> **84,195**; 4op 22s 14,965 -> **14,535**; 3ax 23s 549 -> **484**.
+Plain sum of the working longest: 16 + 18 + 23 + 22 = 79 (P 80 certified; working tables are not a certificate until released).
 
 | length | 1ud (f105) | 2ud (f111) | 3ax (f15) | 4op (f8) |
 |---|---|---|---|---|
@@ -199,6 +205,8 @@ Each directory holds MANIFEST and stages/ (plus boundaries/ where approved); che
 
 | result | where |
 |---|---|
+| plain 79 working tables, not released (1ud f105 16, 2ud f111 18, 3ax f15 23, 4op f8 22) | armory /var/tmp/orbitsolve/fsfold/{1ud-f105,2ud-f111,3ax-f15,4op-f8}; laptop copy /var/tmp/orbitsolve/armory-2026-11-24/fsfold (with optfs run outputs); every shortened line in arena/results/*-improved.txt |
+| sparse working certificate s1119 (79: 1ud f89, 2ud f91, 3ax f6, 4op f8; certcheck/axcheck + independent checks PASS), not released | armory /var/tmp/orbitsolve/sparse/s1119/small; laptop copy /var/tmp/orbitsolve/armory-2026-11-24/sparse/s1119 |
 | **P 80, all four stages lowered 2026-11-04** (tops: 1ud 5,294 at 17, 2ud 287,575 at 18, 3ax 549 at 23, 4op 14,965 at 22) | ~/orbitsolve-certsafe/obl23pair-axis-2026-11-04 (certcheck --keep ud and axcheck PASS; independent .tws checks udindcheck.py / axindcheck.py PASS on all four stages; read-only; checks and SHA256SUMS in certruns/cert-2026-11-04) |
 | **P 80** (1ud 17 + 2ud 18 + 3ax 23 + 4op 22) | ~/orbitsolve-certsafe/obl23pair-axis-P80-2026-11-01 |
 | **P 69 evidence** (UD 31 blocks, search/merge/check logs, scripts, sources; AX 38 as P 71) | ~/orbitsolve-certsafe/obl23pair-P69-evidence-2026-11-13 |
@@ -214,7 +222,7 @@ Each directory holds MANIFEST and stages/ (plus boundaries/ where approved); che
 
 ## Open
 
-- Arena fastsolve campaign (2026-11-11..): 1ud (t16s) and 2ud (t15s) tail searches running, one per socket; 4op stopped 11-12 21:54 (t14/t15 hit rate ~0.4%), 3ax stopped 11-13 02:06 (t14/t15 done; t16 searches ~7-8 h each); refold every ~2 h (journal.md).  Folds start from the expanded P 80 stages (optfs/full).  Working tables above; certificate update when the user asks.
+- Arena fastsolve campaign (2026-11-11..): 1ud reached 16 (11-19); 2ud prod6 done 11-22; since 11-23 the whole arena runs 3ax on the 1400 GB table (big1 done 28/448; s17a 17-move tails 0/417 after 4 h, too slow).  User's call: what next (stop s17a; back to 1ud/2ud lists; or another 3ax approach).  Certificate for plain 79 (from the latest folds or s1119) when the user asks.
 - At home: arena-plan.md (deep in-memory tables on arena, 1.5 TB; move sets and campaign order).
 - AX 38 (P 71): copy the restored blocks into the evidence dir.
 - 1ud: resume the -si run (full lines from chunk caaagh, tails2 15s) and fold; 2ud: running.  Neither the r1ud-si3 stage nor 2ud-t is in a certificate yet.

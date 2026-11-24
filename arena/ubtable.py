@@ -32,6 +32,12 @@ for L in range(0, 30):
 rows.append("| **classes** | " + " | ".join("**{:,}**".format(sum(c.values())) for c in cols) + " |")
 rows.append("| **longest** | " + " | ".join("**%d**" % max(c) for c in cols) + " |")
 top = lambda c: "{:,}".format(c[max(c)])
+# base = expanded P 80 certificate worsts (11-24: a stage's longest can drop below its base worst, e.g. 1ud 17 -> 16)
+BASE = [(17, 5272), (18, 286263), (23, 549), (22, 14965)]
+def tops(c, b):
+    w, n = b
+    if max(c) < w: return "%ds {:,} -> **0** (longest now **%d**: {:,} at %d)".format(n, c[max(c)]) % (w, max(c), max(c))
+    return "%ds {:,} -> **%s**".format(n) % (w, top(c))
 txt = """## Working tables (%s; arena fastsolve tail folds, not yet in a certificate)
 
 Base: the expanded P 80 certificate (certsolve --expand: 1ud 17s 5,272, 2ud 18s 286,263; optfs/full).  Arena fastsolve
@@ -39,12 +45,13 @@ Base: the expanded P 80 certificate (certsolve --expand: 1ud 17s 5,272, 2ud 18s 
 lines (vline-checked), turns every shortened tail into an action for certextend (plus --proptop 16 pulls), and checks
 the result (1ud/2ud certcheck --keep ud PASS; 4op opbound replay + axcheck PASS).  Stages: /var/tmp/orbitsolve/fsfold/
 1ud-%s, 2ud-%s, 4op-%s, %s.
-Tops: 1ud 17s 5,272 -> **%s**; 2ud 18s 286,263 -> **%s**; 4op 22s 14,965 -> **%s**; 3ax 23s 549 -> **%s**.
-Longest per stage unchanged, so P stays 80 plain.
+Tops: 1ud %s; 2ud %s; 4op %s; 3ax %s.
+Plain sum of the working longest: %s (P 80 certified; working tables are not a certificate until released).
 
-""" % (time.strftime('%Y-%m-%d %H:%M'), sys.argv[1], sys.argv[2], sys.argv[3], '3ax-' + A3 if A3 else '3ax ax-m3 (no fold yet)', top(c1), top(c2), top(c4), top(c3)) + "\n".join(rows) + "\n\n"
+""" % (time.strftime('%Y-%m-%d %H:%M'), sys.argv[1], sys.argv[2], sys.argv[3], '3ax-' + A3 if A3 else '3ax ax-m3 (no fold yet)', tops(c1, BASE[0]), tops(c2, BASE[1]), tops(c4, BASE[3]), tops(c3, BASE[2]),
+  " + ".join(str(max(c)) for c in cols) + " = %d" % sum(max(c) for c in cols)) + "\n".join(rows) + "\n\n"
 a = s.index('## Working tables'); b = s.index('## Certificates')
 s = s[:a] + txt + s[b:]
-s = re.sub(r"Later folds not yet in a certificate: arena fastsolve folds [^;]*; see Working tables\);", "Later folds not yet in a certificate: arena fastsolve folds %s (1ud %s at 17, 2ud %s at 18, 3ax %s at 23, 4op %s at 22; see Working tables);" % (time.strftime('%Y-%m-%d'), top(c1), top(c2), top(c3), top(c4)), s)
+s = re.sub(r"Later folds not yet in a certificate: arena fastsolve folds [^;]*; see Working tables\);", "Later folds not yet in a certificate: arena fastsolve folds %s (%s; see Working tables);" % (time.strftime('%Y-%m-%d'), ", ".join("%s %s at %d" % (n, top(c), max(c)) for n, c in zip(("1ud", "2ud", "3ax", "4op"), cols))), s)
 open(U, 'w').write(s)
 print("upperbound5.md: 1ud %s, 2ud %s, 3ax %s, 4op %s" % (top(c1), top(c2), top(c3), top(c4)))
