@@ -40,7 +40,7 @@ top = lambda c: "{:,}".format(c[max(c)])
 tot = lambda cs: sum(max(c) for c in cs)
 txt = """## Working tables (%s; arena fastsolve tail folds, not yet in a certificate)
 
-Arena fastsolve (300/1400 GB tables) shortens the tails of the longest lines; each fold merges them (vline-checked),
+Arena fastsolve (300/700/1400 GB tables) shortens the tails of the longest lines; each fold merges them (vline-checked),
 propagates with certextend and checks (certcheck --keep ud / axcheck PASS).  Cells show certified -> now where they
 differ.  Plain sum **%d** (certified %d).  Stages: armory /var/tmp/orbitsolve/fsfold/1ud-%s, 2ud-%s, 3ax-%s, 4op-%s.
 

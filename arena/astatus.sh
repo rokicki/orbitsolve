@@ -12,4 +12,4 @@ for st in 1ud 2ud 3ax 4op; do
     awk -v st=$st -v r=$r -v len=$len -v s=\$s -v e=\$e '/^Solving/{cur=1; next} cur && /^Found/{n++; h++; cur=0} cur && /^No solution/{n++; cur=0}
       END{left = (s==\"alive\" && n>0) ? sprintf(\"%.1f h left\", e*(len-n)/n/3600) : \"\"; printf \"%s: run %s %s, %d / %d searched, %d shortened, %s\\n\", st, r, s, n, len, h, left}' \$f.out;"
 done
-$A/ar "uptime; mount | grep ' /dev/shm ' | sed 's/.*(\(.*\))/shm mount: \1/'; df -h /dev/shm | tail -1; ls /dev/shm/*-300 2>/dev/null | tr '\n' ' '; echo; $q"
+$A/ar "uptime; mount | grep ' /dev/shm ' | sed 's/.*(\(.*\))/shm mount: \1/'; df -h /dev/shm | tail -1; ls -la /dev/shm 2>/dev/null | grep -- '-[0-9]*$' | tr '\n' ' '; echo; $q"

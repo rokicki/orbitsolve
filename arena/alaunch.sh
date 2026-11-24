@@ -6,6 +6,8 @@
 #      FTNOBUILD=1 (it maps the existing /dev/shm/<st>-300 table and exits if there is none; it never builds);
 #      pid in runs/<st>-NAME.pid, output runs/<st>-NAME.out / .err.  --build (after an arena reboot only): solve8
 #      without FTNOBUILD, which first builds the D=9 table in /dev/shm (hours), then searches LIST;
+#   Table (11-24): /dev/shm/<st>-$AGB, AGB GB (default 700), FTLEV=$ALEV levels (default 3: D = E+3 = 10 for 1ud/2ud);
+#      the env must match the table's build or solve8b finds no matching table.
 #   3. only after a good start: LIST is appended to all.txt and a row to outs, so refold.sh folds it.
 set -u
 A=$(cd "$(dirname "$0")" && pwd)
@@ -13,10 +15,10 @@ echo "# alaunch.sh $*"
 bin=solve8b nb="FTNOBUILD=1"; [ "${1:-}" = "--build" ] && { bin=solve8; nb=""; shift; }
 case ${1:-} in -*) echo "unknown option $1"; exit 1 ;; esac
 [ $# -eq 3 ] || { echo "usage: alaunch.sh [--build] 1ud|2ud|3ax|4op NAME LIST"; exit 1; }
-st=$1; name=$2; list=$3; D=/var/tmp/orbitsolve/optfs/$st
+st=$1; name=$2; list=$3; D=/var/tmp/orbitsolve/optfs/$st; G=${AGB:-700}; LEV=${ALEV:-3}
 case $st in
-  1ud) node=0 tws=1ud-si.tws lg=8 me=1e12 ;;
-  2ud) node=1 tws=2ud-si.tws lg=8 me=1e12 ;;
+  1ud) node=0 tws=1ud-si.tws lg=8 me=2e13 ;;
+  2ud) node=1 tws=2ud-si.tws lg=8 me=2e13 ;;
   3ax) node=0 tws=obl8ax-nr.tws lg=50 me=1e13 ;;
   4op) node=1 tws=obl8op-nr.tws lg=24 me=1e13 ;;
   *) echo "unknown stage $st"; exit 1 ;;
@@ -34,7 +36,7 @@ read -r loc rem len < <(tail -1 $D/outs)
 # 2. start
 $A/ar "cat > fastsolve-x86/$st/$name.txt" < "$list" || { echo "copy to arena failed"; exit 1; }
 $A/ar "cd fastsolve-x86 || exit 1; [ \$(wc -l < $st/$name.txt) -eq $n ] || { echo list copy incomplete; exit 1; }
-  FTSHM=/dev/shm/$st-300 FTGB=300 LAYERGB=$lg MAXEST=$me $nb setsid nohup numactl --cpunodebind=$node \
+  FTSHM=/dev/shm/$st-$G FTGB=$G FTLEV=$LEV LAYERGB=$lg MAXEST=$me $nb setsid nohup numactl --cpunodebind=$node \
   --membind=$node ./$bin $tws $st/$name.txt 1000000 20 > runs/$st-$name.out 2> runs/$st-$name.err < /dev/null &
   echo \$! > runs/$st-$name.pid" || { echo "start failed"; exit 1; }
 sleep 30
