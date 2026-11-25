@@ -123,7 +123,7 @@ Even n: P k(k-1)/2 + (D + W) k + 11 with k = (n-2)/2, which is the polynomial ab
 - P <= 70 checked (dry run, 11-10 20:05): UD 32 (4,087,739 blocks, nearly all from stage moves only; gpubound PASS, 6.39e13 colourings, 0 not solved) + AX 38.  Evidence ~/orbitsolve-certsafe/obl23pair-P70-evidence-2026-11-10.
 - P <= 71 checked (dry run): UD 33 + AX 38 (gpuaxbx covered all 7,263,089 classes in passes broad..f; gpuaxbcheck PASS 11-08 23:52: 147,437,136,202,996 positions tried, 0 not solved; 116,080,766 3ax states with d3 > 16, 0 without a block; CPU = GPU on 1,453 blocks; 10.6 h).  Same four stages as P 72.  Evidence ~/orbitsolve-certsafe/obl23pair-P71-evidence-2026-11-08 (logs, scripts, sources); the blocks (bnd/g38m.txt.zst, 7.9 GB) were deleted by a script glob bug and restored from an APFS snapshot, not yet copied into the evidence dir.
 - P <= 72 checked (dry run): UD 33 (gpuboundx covered 981,333 classes; gpubound PASS, 5.24e12 colourings, 0 not solved) + AX 39 (gpuaxbx covered all 5,071,318 classes; gpuaxbcheck PASS, 4.17e13 positions, 0 not solved, 11-04 23:18).  All four stages = the obl23pair-axis-2026-11-04 certificate.  Evidence ~/orbitsolve-certsafe/obl23pair-P72-evidence-2026-11-05.  Boundary certificates at home (AX 39 blocks 10.3 GiB plain, UD 33 1.31 GiB).
-- Tops of the certified stages: 1ud 740,855 at 16, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22.  Later folds not yet in a certificate: arena fastsolve folds 2026-11-25 (1ud 727,676 at 16, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22; see Working tables); earlier 1ud r1ud-si4, 2ud r2ud-si5 (217,884 at 18).
+- Tops of the certified stages: 1ud 740,855 at 16, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22.  Later folds not yet in a certificate: arena fastsolve folds 2026-11-25 (1ud 712,504 at 16, 2ud 84,195 at 18, 3ax 484 at 23, 4op 14,535 at 22; see Working tables); earlier 1ud r1ud-si4, 2ud r2ud-si5 (217,884 at 18).
 - Whole-cube solver from the certificates: certsolve (repo staged in ~/orbitsolve/repo; timing at the bottom of this file).
 - **Table size for a solver:** about 28 MB (2.25M stored lines; the rest are one stage move from a shorter class).
 
@@ -159,13 +159,13 @@ obl23pair-axis-2026-11-24 = arena folds 1ud f105, 2ud f111, 3ax f15, 4op f8 (pre
 | **classes** | **14,119,851** | **2,936,935** | **10,366,284** | **1,508,387** |
 | **longest** | **16** | **18** | **23** | **22** |
 
-## Working tables (2026-11-25 06:48; arena fastsolve tail folds, not yet in a certificate)
+## Working tables (2026-11-25 08:48; arena fastsolve tail folds, not yet in a certificate)
 
 Arena fastsolve (300/700/1400 GB tables) shortens the tails of the longest lines; each fold merges them (vline-checked),
 propagates with certextend and checks (certcheck --keep ud / axcheck PASS).  Cells show certified -> now where they
-differ.  Plain sum **79** (certified 79).  Stages: armory /var/tmp/orbitsolve/fsfold/1ud-f106, 2ud-f111, 3ax-f15, 4op-f8.
+differ.  Plain sum **79** (certified 79).  Stages: armory /var/tmp/orbitsolve/fsfold/1ud-f107, 2ud-f111, 3ax-f15, 4op-f8.
 
-| length | 1ud (f106) | 2ud (f111) | 3ax (f15) | 4op (f8) |
+| length | 1ud (f107) | 2ud (f111) | 3ax (f15) | 4op (f8) |
 |---|---|---|---|---|
 | 0 | 1 | 1 | 1 | 1 |
 | 3 | 12 |  |  |  |
@@ -177,11 +177,11 @@ differ.  Plain sum **79** (certified 79).  Stages: armory /var/tmp/orbitsolve/fs
 | 9 | 99,131 | 1,280 | 2,022 | 268 |
 | 10 | 382,173 | 11,168 | 8,088 | 636 |
 | 11 | 1,100,792 | 22,916 | 24,726 | 1,611 |
-| 12 | 1,836,796 -> **1,836,811** | 48,784 | 77,071 | 4,469 |
-| 13 | 2,800,100 -> **2,800,563** | 140,649 | 225,254 | 12,143 |
-| 14 | 4,089,294 -> **4,095,558** | 276,668 | 444,068 | 30,653 |
-| 15 | 3,040,221 -> **3,046,658** | 476,862 | 829,221 | 54,620 |
-| 16 | 740,855 -> **727,676** | 888,874 | 1,492,065 | 86,327 |
+| 12 | 1,836,796 -> **1,836,817** | 48,784 | 77,071 | 4,469 |
+| 13 | 2,800,100 -> **2,800,954** | 140,649 | 225,254 | 12,143 |
+| 14 | 4,089,294 -> **4,101,956** | 276,668 | 444,068 | 30,653 |
+| 15 | 3,040,221 -> **3,055,035** | 476,862 | 829,221 | 54,620 |
+| 16 | 740,855 -> **712,504** | 888,874 | 1,492,065 | 86,327 |
 | 17 |  | 984,940 | 2,191,791 | 165,467 |
 | 18 |  | 84,195 | 2,363,659 | 305,609 |
 | 19 |  |  | 1,633,820 | 406,381 |
